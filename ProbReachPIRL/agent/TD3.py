@@ -34,6 +34,27 @@ def get_activation(name):
     else:
         raise ValueError(f"Unknown activation: {name}")
 
+
+def initialize_linear(layer: nn.Linear, init_type: str = "default", bias_value: float = 0.0):
+    init_type = init_type.lower()
+
+    if init_type == "default":
+        return
+    elif init_type in ["glorot_uniform", "xavier_uniform"]:
+        nn.init.xavier_uniform_(layer.weight)
+    elif init_type in ["glorot_normal", "xavier_normal"]:
+        nn.init.xavier_normal_(layer.weight)
+    elif init_type == "kaiming_uniform":
+        nn.init.kaiming_uniform_(layer.weight, nonlinearity="relu")
+    elif init_type == "kaiming_normal":
+        nn.init.kaiming_normal_(layer.weight, nonlinearity="relu")
+    else:
+        raise ValueError(f"Unknown init_type: {init_type}")
+        
+    if layer.bias is not None:
+        nn.init.constant_(layer.bias, bias_value)
+
+
 class Actor(nn.Module):
     def __init__(self, state_dim, action_dim, hidden_dims=(32, 32), 
                  hidden_activation="relu", output_activation="tanh"
@@ -54,42 +75,67 @@ class Actor(nn.Module):
 
 
 class QNetwork(nn.Module):
-    def __init__(self, input_dim, hidden_dims=(32, 32),
-                 hidden_activation="tanh", output_activation="sigmoid",
-                 ):
+    def __init__(self, input_dim,
+                hidden_dims=(32, 32),
+                hidden_activation="tanh",
+                output_activation="sigmoid",
+                init_type="xavier_uniform",
+                bias_value=0.0,
+                ):
         super().__init__()
         layers = []
+        linear_layers = []
+
         in_dim = input_dim
         for h in hidden_dims:
-            layers.append(nn.Linear(in_dim, h))
+            linear = nn.Linear(in_dim, h)
+            layers.append(linear)
             layers.append(get_activation(hidden_activation))
+            linear_layers.append(linear)
             in_dim = h
-        layers.append(nn.Linear(in_dim, 1))
+        linear = nn.Linear(in_dim, 1)
+        layers.append(linear)
         layers.append(get_activation(output_activation))
+        linear_layers.append(linear)
         self.net = nn.Sequential(*layers)
+
+        for layer in linear_layers:
+            initialize_linear(layer, init_type=init_type, bias_value=bias_value)
 
     def forward(self, x):
         return self.net(x)
 
+
 class Critic(nn.Module):
-    def __init__(self, state_dim, action_dim, hidden_dims=(32, 32),
-                 hidden_activation="relu", output_activation="identity",
-                 ):
+    def __init__(
+        self,
+        state_dim,
+        action_dim,
+        hidden_dims=(32, 32),
+        hidden_activation="relu",
+        output_activation="identity",
+        init_type="xavier_uniform",
+        bias_value=0.0,
+    ):
         super().__init__()
         input_dim = state_dim + action_dim
-        
+
         self.q1_net = QNetwork(
             input_dim=input_dim,
             hidden_dims=hidden_dims,
             hidden_activation=hidden_activation,
             output_activation=output_activation,
+            init_type=init_type,
+            bias_value=bias_value,
         )
-        
+
         self.q2_net = QNetwork(
             input_dim=input_dim,
             hidden_dims=hidden_dims,
             hidden_activation=hidden_activation,
             output_activation=output_activation,
+            init_type=init_type,
+            bias_value=bias_value,
         )
 
     def forward(self, state, action):
@@ -102,6 +148,7 @@ class Critic(nn.Module):
         sa = torch.cat([state, action], dim=-1)
         q1 = self.q1_net(sa)
         return q1
+
     
 ###########################################################################
 # Reply buffer
@@ -162,8 +209,8 @@ class AgentConfig:
     critic_output_activation: str = "sigmoid"
 
     # optimization
-    actor_lr: float  = 1e-3
     critic_lr: float = 1e-3
+    actor_lr: float  = 1e-3
 
     # RL params
     discount: float = 1.00 # Discount factor
@@ -216,11 +263,28 @@ class PIRLAgent:
         with torch.no_grad():
             action = self.actor(state)
         return action.cpu().numpy()
+
+    def get_action_with_learn_policy_noise(self, state):
+        state = torch.as_tensor(state, dtype=torch.float32, device=self.device)
+        with torch.no_grad():
+            # next action
+            noise = (
+                torch.randn(len(state), self.config.action_dim) * self.config.learn_policy_noise
+                ).clamp(-self.config.learn_noise_clip, self.config.learn_noise_clip)    
+            action = self.actor_target(state) + noise
+        return action
         
     def get_value(self, state):
         state = torch.as_tensor(state, dtype=torch.float32, device=self.device)
         with torch.no_grad():
             action = self.actor(state)
+            value = self.critic.Q1(state, action)
+        return value.cpu().numpy()   
+
+    def get_action_value(self, state, action):
+        state  = torch.as_tensor(state,  dtype=torch.float32, device=self.device)
+        action = torch.as_tensor(action, dtype=torch.float32, device=self.device)
+        with torch.no_grad():
             value = self.critic.Q1(state, action)
         return value.cpu().numpy()   
         
@@ -390,19 +454,19 @@ class PIRLAgent:
 
         return pde_loss
 
-    def calculate_boundary_loss(self, X_safe, X_lat):
+    def calculate_boundary_loss(self, X_tgt, X_avoid):
 
-        X_safe = torch.as_tensor(X_safe, dtype=torch.float32, device=self.device)
-        X_lat = torch.as_tensor(X_lat, dtype=torch.float32, device=self.device)
+        X_tgt   = torch.as_tensor(X_tgt,  dtype=torch.float32, device=self.device)
+        X_avoid = torch.as_tensor(X_avoid,dtype=torch.float32, device=self.device)
         
         boundary_loss = 0.0
 
-        # termanal boundary (horizon = 0)
-        V_ini1, V_ini2 = self.critic(X_safe, self.actor(X_safe))
+        # Target boundary
+        V_ini1, V_ini2 = self.critic(X_tgt, self.actor(X_tgt))
         boundary_loss += (F.mse_loss(V_ini1, torch.ones_like(V_ini1)) 
                           + F.mse_loss(V_ini2, torch.ones_like(V_ini2)))
-        # lateral boundary
-        V_lat1, V_lat2 = self.critic(X_lat, self.actor(X_lat))
+        # Avoid boundary
+        V_lat1, V_lat2 = self.critic(X_avoid, self.actor(X_avoid))
         boundary_loss += (F.mse_loss(V_lat1, torch.zeros_like(V_lat1)) 
                           + F.mse_loss(V_lat2, torch.zeros_like(V_lat2)) )
         
@@ -412,7 +476,7 @@ class PIRLAgent:
             self, weight_td3 = 1, weight_hjb = 0, weight_bdr = 0,
             replay_samples = None, 
             X_pde = None, f = None, sigma=None, diag=False, 
-            X_safe= None, X_lat = None
+            X_tgt= None, X_avoid = None
             ):
 
         # Loss calculation        
@@ -430,8 +494,8 @@ class PIRLAgent:
             critic_loss += weight_hjb * hjb_loss
             loss_dict["hjb"] = hjb_loss.item()
             
-        if weight_bdr > 0 and X_safe is not None and X_lat is not None:
-            boundary_loss = self.calculate_boundary_loss(X_safe, X_lat)
+        if weight_bdr > 0 and X_tgt is not None and X_avoid is not None:
+            boundary_loss = self.calculate_boundary_loss(X_tgt, X_avoid)
             critic_loss +=  weight_bdr * boundary_loss
             loss_dict["bdr"] = boundary_loss.item()
 
@@ -450,7 +514,7 @@ class PIRLAgent:
         actor_loss.backward()
         self.actor_optimizer.step()
 
-    def update_tarket_newtorks(self, tau = 0.005):
+    def update_target_newtorks(self, tau = 0.005):
 
         # Update the frozen target models
         for param, target_param in zip(self.critic.parameters(), self.critic_target.parameters()):
@@ -476,11 +540,11 @@ def train(env,
           # ---- RL config ----
           initial_exploration_num = 100,
           exploration_noise       = 0.1, 
-          minibatch_size          = 64,
+          minibatch_size          = 128,
           policy_update_freq      = 2,  
           target_update_rate      = 0.005,
           # ---- PINN config ----
-          num_collocations: tuple[int, int, int] = (64, 32, 32) #(nPDE, nSAFE, nBDR)
+          num_collocations: tuple[int, int, int] = (64, 32, 32) #(nPDE, nTGT, nAVOID)
           ):
  
     ######################################
@@ -499,7 +563,7 @@ def train(env,
     policy_update_cnt = 0    
     weight_delta = 1
     weight_td3, weight_hjb, weight_bdr = loss_weights
-    nPDE, nSAFE, nBDR = num_collocations
+    nPDE, nTarget, nAvoid = num_collocations
     
     ##########################################
     # Training loop
@@ -559,6 +623,7 @@ def train(env,
 
             # Policy-based exploration
             else:
+                act_fn = agent.config.actor_output_activation
                 noise  = np.random.normal(0, exploration_noise, size=agent.action_dim)
                 action = agent.get_action(state) + noise
                 if act_fn == "tanh":
@@ -590,11 +655,13 @@ def train(env,
                 replay_samples = agent.sample_from_replay_memory(minibatch_size)
                 
                 # Sample for PINN update 
-                X_pde, X_safe, X_lat = env.sample_pinn_collocation_points(nPDE=nPDE, 
-                                                                          nSAFE=nSAFE, 
-                                                                          nBDR=nBDR
-                                                                          )
-                U_pde = agent.get_action(X_pde)
+                X_pde, X_tgt, X_avoid = env.sample_pinn_collocation_points(nPDE=nPDE, 
+                                                                           nTarget=nTarget, 
+                                                                           nAvoid=nAvoid
+                                                                           )
+                #U_pde = agent.get_action(X_pde)
+                U_pde = agent.get_action_with_learn_policy_noise(X_pde)
+
                 f, sigma, diag  = env.evaluate_physics_model(X_pde, U_pde)
 
                 # Update critic
@@ -603,7 +670,7 @@ def train(env,
                                             weight_bdr = weight_bdr,
                                             replay_samples = replay_samples, 
                                             X_pde = X_pde, f = f, sigma=sigma, diag=diag,
-                                            X_safe = X_safe, X_lat = X_lat
+                                            X_tgt = X_tgt, X_avoid = X_avoid
                                             )
                      
                 # Delayed policy updates
@@ -614,7 +681,7 @@ def train(env,
                     agent.update_actor(replay_samples["state"])
 
                     # Update target networks
-                    agent.update_tarket_newtorks(tau = target_update_rate) 
+                    agent.update_target_newtorks(tau = target_update_rate) 
             else:
                 loss = {"td":0, "hjb":0, "bdr": 0}
         
@@ -630,8 +697,8 @@ def train(env,
             loss["td"] = agent.calculate_TD_critic_loss(**replay_samples)
         if loss["hjb"] == 0 or loss["bdr"] == 0:
             X_pde, X_safe, X_lat = env.sample_pinn_collocation_points(nPDE=nPDE, 
-                                                                      nSAFE=nSAFE, 
-                                                                      nBDR=nBDR
+                                                                      nTarget=nTarget, 
+                                                                      nAvoid=nAvoid
                                                                       )
             U_pde = agent.get_action(X_pde)
             f, sigma, diag   = env.evaluate_physics_model(X_pde, U_pde)

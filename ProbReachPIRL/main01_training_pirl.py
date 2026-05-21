@@ -1,67 +1,157 @@
+# main01_training_pirl.py
 """
-  Training of PIRL agent for planer system
+Main training script for PIRL agent.
+
+Examples:
+    python train_main.py --case 1d --method td3 --seed 1
+    python train_main.py --case 2d --method scheduling --seed 1
+    python train_main.py --case drift --method scheduling --seed 1
 """
+
 import numpy as np
 import random
 import argparse
 import torch
+import importlib
+from dataclasses import dataclass
 
-import sys, os
-sys.path.append(os.pardir)
+from agent.TD3 import PIRLAgent, AgentConfig, train
 
-from agent.TD3 import PIRLAgent, AgentConfig
-from agent.TD3 import train
-from examples.planer_env import Env
+@dataclass
+class CaseConfig:
+    env_module: str
+    log_dir: str
+    num_episodes: int
+    num_collocations: tuple
+    checkpoint_freq: int
+    policy_update_freq: int
+    initial_exploration_num: int
+    exploration_noise: float
+    critic_lr: float = 1e-4
+    actor_lr: float = 1e-4
+    learn_policy_noise: float = 0.5
+    learn_noise_clip: float = 0.5
 
-parser = argparse.ArgumentParser()
-parser.add_argument("--method", default="scheduled")     # "td3", "pinn", "scheduled"
-parser.add_argument("--seed",   default=1, type=int)  
-args = parser.parse_args()
+CASE_CONFIGS = {
+    "1d": CaseConfig(
+        env_module   = "examples.env_1d_reach",
+        log_dir      = "logs/1D",
+        num_episodes = 20000,
+        num_collocations = (1000, 100, 100),
+        checkpoint_freq=500,
+        policy_update_freq=50,
+        initial_exploration_num=1000,
+        exploration_noise=0.2,
+    ),
+    "2d": CaseConfig(
+        env_module   = "examples.env_2d_avoid",
+        log_dir      = "2D",
+        num_episodes = 20000,
+        num_collocations = (1000, 100, 100),
+        checkpoint_freq=500,
+        policy_update_freq=50,
+        initial_exploration_num=1000,
+        exploration_noise=0.2,
+    ),
+    "drift": CaseConfig(
+        env_module   ="examples.env_drifting_control",
+        log_dir      ="logs/drift",
+        num_episodes = 30000,
+        num_collocations = (2000, 200, 200),
+        checkpoint_freq  = 1000,
+        policy_update_freq=50,
+        initial_exploration_num=2000,
+        exploration_noise=0.2,
+        critic_lr=1e-4,
+        actor_lr=1e-4,
+    ),
+}
 
-# Set seeds
-random.seed(args.seed)
-np.random.seed(args.seed)
-torch.manual_seed(args.seed)
+def get_loss_setting(method):
+    if method == "td3":
+        return [1.0, 0.0, 0.0], None
 
-# Environment
-env   = Env()
+    if method == "pinn":
+        return [0.0, 1.0, 1.0], None
 
-agent_config = AgentConfig(
-        state_dim=env.state_dim,
-        action_dim=env.action_dim,
-        )
+    if method == "fixed":
+        return [1.0, 1.0, 1.0], None
 
-agent = PIRLAgent(agent_config, device="cpu")
+    if method == "scheduling":
+        loss_weights = [1.0, 1.0, 1.0]
+        weight_schedule = (10000, 5e-4, 1e-2, 1.0)
+        return loss_weights, weight_schedule
 
-print("--------------------------------------------")
-print(f"Method: {args.method}, Seed: {args.seed}")
-print("--------------------------------------------")
+    raise ValueError(f"Unknown method: {method}")
 
-LOG_DIR = 'logs'
+def make_env(case):
+    cfg = CASE_CONFIGS[case]
+    module = importlib.import_module(cfg.env_module)
+    return module.Env()
 
-if args.method == "td3": 
-    loss_weights = [1, 0, 0] # "td3", "hbj", "bdr"
-    weight_schedule = None
+def set_seed(seed):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+
+
+def main():
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--case",   default="drift")       # "1D", "2D", "drift"
+    parser.add_argument("--method", default="scheduling") # "td3", "pinn", "scheduling"
+    parser.add_argument("--seed",   default=1, type=int)  
+    parser.add_argument("--checkpoint", default=None)
+    parser.add_argument("--device", default="auto")  # auto, cpu, cuda
+    parser.add_argument("--verbose", default=1, type=int)
+    args = parser.parse_args()
+
+    set_seed(args.seed)
+
+    case_cfg = CASE_CONFIGS[args.case]
+    env = make_env(args.case)
     
-elif args.method == "pinn":
-    loss_weights = [0, 1, 1] # "td3", "hbj", "bdr"
-    weight_schedule = None
+    agent_config = AgentConfig(
+        state_dim  = env.state_dim,
+        action_dim = env.action_dim,
+        critic_lr  = case_cfg.critic_lr,
+        actor_lr   = case_cfg.actor_lr,
+        learn_policy_noise = case_cfg.learn_policy_noise,
+        learn_noise_clip   = case_cfg.learn_noise_clip,
+    )
 
-elif args.method == "scheduled":
-    loss_weights = [1, 1e-2, 1e-1]
-    weight_schedule = (3000, 0.005, 0, 1) # (ep_Half, steepness, del_start, del_end)     
+    if args.checkpoint is None:
+        agent = PIRLAgent(agent_config, device=args.device)
+    else:
+        agent = PIRLAgent.from_checkpoint(args.checkpoint)
 
-train(env, 
-      agent, 
-      num_episodes = 10000, 
-      seed      = 1,
-      log_dir   = LOG_DIR,
-      checkpoint_freq = 500,
-      verbose   = 1,
-      loss_weights = loss_weights,
-      weight_schedule = weight_schedule,
-      num_collocations = (64, 32, 32)
-      )
+    loss_weights, weight_schedule = get_loss_setting(args.method)
 
+    print("--------------------------------------------")
+    print(f"Case   : {args.case}")
+    print(f"Method : {args.method}")
+    print(f"Seed   : {args.seed}")
+    print(f"Device : {args.device}")
+    print(f"Log dir: {case_cfg.log_dir}")
+    print("--------------------------------------------")
 
- 
+    train(
+        env,
+        agent,
+        num_episodes = case_cfg.num_episodes,
+        seed         = args.seed,
+        log_dir      = case_cfg.log_dir,
+        checkpoint_freq = case_cfg.checkpoint_freq,
+        verbose         = args.verbose,
+        loss_weights    = loss_weights,
+        weight_schedule = weight_schedule,
+        num_collocations= case_cfg.num_collocations,
+        policy_update_freq= case_cfg.policy_update_freq,
+        initial_exploration_num = case_cfg.initial_exploration_num,
+        exploration_noise = case_cfg.exploration_noise,
+    )
+    
+
+if __name__ == "__main__":
+    main()
+

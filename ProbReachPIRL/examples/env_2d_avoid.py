@@ -52,8 +52,8 @@ class Env(object):
         Ns = X.shape[0]
         Xdim = X.shape[1]
         sigma = np.zeros((Ns, Xdim), dtype=np.float32)             
-        sigma[:, 1] = 1.0
-        sigma[:, 2] = 1.0
+        sigma[:, 1] = 0.4
+        sigma[:, 2] = 0.4
         
         return (f[0], sigma[0]) if single else (f, sigma)
     
@@ -66,7 +66,7 @@ class Env(object):
         s   = np.sign( np.random.randn(2) )
         r   = np.random.rand(2)
         X1  = s[0]*r[0]*1.5
-        X2  = s[1]*r[1]*1.2
+        X2  = s[1]*r[1]*1.0
         self.state = np.array([T, X1, X2])
         return self.state
 
@@ -100,27 +100,27 @@ class Env(object):
     ################################################
     # for PINN training 
     #################################################    
-    def sample_pinn_collocation_points(self, nPDE, nSAFE, nBDR):
+    def sample_pinn_collocation_points(self, nPDE, nTarget, nAvoid):
 
         def lhs_box(dim, num, lb, ub):
             u = qmc.LatinHypercube(d=dim).random(num)
             return qmc.scale(u, lb, ub).astype(np.float32)
 
         # Interior points    
-        X_pde = lhs_box(3, nPDE, [0, -1.5, -1.0], [2.0, 1.5, 1.0])
+        X_pde = lhs_box(3, nPDE, [0, -1.5, -0.9], [2.0, 1.5, 0.9])
         
         # Safe and Terminal boundary (at T=0)
-        X = lhs_box(2, nSAFE, [-1.5, -1.0], [1.5, 1.0])
-        T = np.zeros(nSAFE)
-        X_safe = np.column_stack([T, X]).astype(np.float32)
+        X = lhs_box(2, nTarget, [-1.5, -1.0], [1.5, 1.0])
+        T = np.zeros(nTarget)
+        X_tgt = np.column_stack([T, X]).astype(np.float32)
         
         # Unsafe Lateral boundary (unsafe set)        
-        T_X1 = lhs_box(2, nBDR, [0.0, -1.5], [2.0, 1.5])
-        X2 = np.ones(nBDR)
-        X2[nBDR//2:] = -1.0
-        X_lat = np.column_stack([T_X1, X2]).astype(np.float32)
+        T_X1 = lhs_box(2, nAvoid, [0.0, -1.5], [2.0, 1.5])
+        X2 = np.ones(nAvoid)
+        X2[nAvoid//2:] = -1.0
+        X_avoid = np.column_stack([T_X1, X2]).astype(np.float32)
 
-        return X_pde, X_safe, X_lat       
+        return X_pde, X_tgt, X_avoid       
         
         
     def evaluate_physics_model(self, X_pde, U_pde):
@@ -131,7 +131,16 @@ class Env(object):
         return f, sigma, diag
            
 
-
+    @classmethod
+    def make_eval_states(cls, T, num_grid):
+        
+        x1 = np.linspace(-1.5, 1.5, num=num_grid)
+        x2 = np.linspace(-1.2, 1.2, num=num_grid)
+        X1, X2 = np.meshgrid(x1, x2, indexing='ij')
+        Ts = np.full_like(X1, T)
+        state = np.stack([Ts, X1, X2], axis=-1).reshape(-1, 3)
+        meta = {"x": x, "T": T}
+        return state, meta
 
 
 ##########################################################
