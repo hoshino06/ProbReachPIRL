@@ -1,18 +1,15 @@
 # -*- coding: utf-8 -*-
-"""
-Created on Wed Apr 22 16:19:41 2026
-@author: hoshino
-"""
+import ray
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.tensorboard import SummaryWriter
 import numpy as np
-import time
 import copy
 from tqdm import tqdm
 from datetime import datetime
 from dataclasses import dataclass, asdict
+from collections import deque
 
 ########################################################################
 # Neural Networks (actor and critic)
@@ -34,7 +31,6 @@ def get_activation(name):
     else:
         raise ValueError(f"Unknown activation: {name}")
 
-
 def initialize_linear(layer: nn.Linear, init_type: str = "default", bias_value: float = 0.0):
     init_type = init_type.lower()
 
@@ -54,7 +50,6 @@ def initialize_linear(layer: nn.Linear, init_type: str = "default", bias_value: 
     if layer.bias is not None:
         nn.init.constant_(layer.bias, bias_value)
 
-
 class Actor(nn.Module):
     def __init__(self, state_dim, action_dim, hidden_dims=(32, 32), 
                  hidden_activation="relu", output_activation="tanh"
@@ -72,7 +67,6 @@ class Actor(nn.Module):
 
     def forward(self, state):
         return self.net(state)
-
 
 class QNetwork(nn.Module):
     def __init__(self, input_dim,
@@ -104,7 +98,6 @@ class QNetwork(nn.Module):
 
     def forward(self, x):
         return self.net(x)
-
 
 class Critic(nn.Module):
     def __init__(
@@ -148,7 +141,7 @@ class Critic(nn.Module):
         sa = torch.cat([state, action], dim=-1)
         q1 = self.q1_net(sa)
         return q1
-    
+
 ###########################################################################
 # Reply buffer
 ###########################################################################
@@ -174,6 +167,25 @@ class ReplayMemory(object):
         self.ptr = (self.ptr + 1) % self.max_size
         self.size = min(self.size + 1, self.max_size)
 
+    def add_batch(self, states, actions, next_states, rewards, dones):
+        states      = np.asarray(states, dtype=np.float32)
+        actions     = np.asarray(actions, dtype=np.float32)
+        next_states = np.asarray(next_states, dtype=np.float32)
+        rewards     = np.asarray(rewards, dtype=np.float32).reshape(-1, 1)
+        dones       = np.asarray(dones, dtype=np.float32).reshape(-1, 1)
+
+        n = len(states)
+        idx = (np.arange(n) + self.ptr) % self.max_size
+
+        self.state[idx]      = states
+        self.action[idx]     = actions
+        self.next_state[idx] = next_states
+        self.reward[idx]     = rewards
+        self.not_done[idx]   = 1.0 - dones
+
+        self.ptr = (self.ptr + n) % self.max_size
+        self.size = min(self.size + n, self.max_size)
+
     def sample(self, batch_size, device):
         ind = np.random.randint(0, self.size, size=batch_size)
         return (
@@ -187,7 +199,7 @@ class ReplayMemory(object):
     def __len__(self):
         return self.size
 
-    
+
 ###########################################################################
 # PIRL agent
 ###########################################################################
@@ -213,14 +225,12 @@ class AgentConfig:
 
     # RL params
     discount: float = 1.00 # Discount factor
-    replay_memory_size: int = 5000
-    learn_policy_noise: float = 0.2 
-    learn_noise_clip: float = 0.5
-    policy_updata_freq: int = 2
-    
+    replay_memory_size: int = 5_000
+    learn_policy_noise: float = 0.2  #0.2 
+    learn_noise_clip: float   = 0.5    
 
 class PIRLAgent:
-    def __init__(self, config: AgentConfig, device: str = "auto"):
+    def __init__(self, config:AgentConfig, device:str="auto", learner=True):
         # Config
         self.config = config
         if device == "auto":
@@ -231,32 +241,35 @@ class PIRLAgent:
         # counters
         self.itr = 0
 
-        # Neural Networks (Actor and Critic) and Optimizer (Adam)
+        # Neural Networks (Actor and Critic)
         self.actor = Actor(config.state_dim, config.action_dim, 
                            config.actor_hidden_dims,
                            config.actor_hidden_activation, 
                            config.actor_output_activation,
                            ).to(self.device)
-        self.actor_target = copy.deepcopy(self.actor)
-        self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), 
-                                                lr=config.actor_lr)
         self.critic = Critic(config.state_dim, config.action_dim, 
                              config.critic_hidden_dims,
                              config.critic_hidden_activation, 
                              config.critic_output_activation,
                              ).to(self.device)
-        self.critic_target = copy.deepcopy(self.critic)
-        self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), 
-                                                 lr=config.critic_lr)
 
-        # Replay Memory
-        self.replay_memory = ReplayMemory(
-            state_dim=config.state_dim,
-            action_dim=config.action_dim,
-            max_size=config.replay_memory_size,
-        )
-        
-    
+        # Optimizer, Target Networks, Replay Memory (for Learner)       
+        if learner:
+            self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), 
+                                                    lr=config.actor_lr)
+            self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), 
+                                                     lr=config.critic_lr)
+            self.critic_target = copy.deepcopy(self.critic)
+            self.actor_target  = copy.deepcopy(self.actor)
+            self.replay_memory = ReplayMemory(
+                state_dim=config.state_dim,
+                action_dim=config.action_dim,
+                max_size=config.replay_memory_size,
+            )        
+            
+    ####################################################################
+    # Getter of actions and values
+    ####################################################################    
     def get_action(self, state):
         state = torch.as_tensor(state, dtype=torch.float32, device=self.device)
         with torch.no_grad():
@@ -268,9 +281,21 @@ class PIRLAgent:
         with torch.no_grad():
             # next action
             noise = (
-                torch.randn(len(state), self.config.action_dim) * self.config.learn_policy_noise
+                torch.randn(
+                    len(state), self.config.action_dim, device=self.device
+                    ) * self.config.learn_policy_noise
                 ).clamp(-self.config.learn_noise_clip, self.config.learn_noise_clip)    
             action = self.actor_target(state) + noise
+        return action
+
+    def get_random_action(self): 
+        act_fn = self.config.actor_output_activation
+        if act_fn == "tanh":
+            action = np.random.uniform(-1, 1, size=self.action_dim)
+        elif act_fn == "sigmoid":
+            action = np.random.uniform(0, 1, size=self.action_dim)
+        else:
+            raise ValueError(f"Unsupported actor_output_activation: {act_fn}")
         return action
         
     def get_value(self, state):
@@ -287,10 +312,16 @@ class PIRLAgent:
             value = self.critic.Q1(state, action)
         return value.cpu().numpy()   
         
+    ####################################################################
+    # Relpay memory
+    ####################################################################    
     def add_to_replay_memory(self,  state, action, next_state, reward, done):
-
         self.replay_memory.add(state, action, next_state, reward, done)        
-    
+
+    def add_batch_to_replay_memory(self, transitions):
+        states, actions, next_states, rewards, dones = transitions
+        self.replay_memory.add_batch(states, actions, next_states, rewards, dones)    
+
     def sample_from_replay_memory(self, minibatch_size):
 
         # Sample replay buffer 
@@ -306,7 +337,6 @@ class PIRLAgent:
             }
 
         return replay_samples
-
     
     ####################################################################
     # Save and Load
@@ -331,8 +361,8 @@ class PIRLAgent:
             cls,
             path: str,
             device: str = "auto",
-            load_optimizer: bool = True,
-            strict: bool = True,
+            learner: bool = True,
+            strict:  bool = True,
             ):
         # Load checkpoint
         if device == "auto":
@@ -343,24 +373,24 @@ class PIRLAgent:
         
         # build agent
         config = AgentConfig(**checkpoint["config"])
-        agent  = cls(config=config, device=device)
+        agent  = cls(config=config, device=device, learner=learner)
     
         # counter
         agent.itr = checkpoint.get("itr", 0)
 
         # load networks
         agent.actor.load_state_dict(checkpoint["actor"], strict=strict)
-        agent.actor_target.load_state_dict(checkpoint["actor_target"], strict=strict)
         agent.critic.load_state_dict(checkpoint["critic"], strict=strict)
-        agent.critic_target.load_state_dict(checkpoint["critic_target"], strict=strict)
     
         # optimizer
-        if load_optimizer:
+        if learner:
             agent.actor_optimizer.load_state_dict(checkpoint["actor_optimizer"])
             agent.critic_optimizer.load_state_dict(checkpoint["critic_optimizer"])
-    
+            agent.actor_target.load_state_dict(checkpoint["actor_target"], strict=strict)
+            agent.critic_target.load_state_dict(checkpoint["critic_target"], strict=strict)
+
         return agent    
-        
+
     ####################################################################
     # Update of actor and critic
     ####################################################################    
@@ -387,18 +417,19 @@ class PIRLAgent:
 
         return critic_loss
 
-
-    def calculate_HJB_loss(self, X_pde, f, sigma=None, diag=False):
+    def calculate_HJB_loss(self, pde_samples, f, sigma=None, diag=False):
 
         # From numpy to tensor
-        X_pde = torch.as_tensor(X_pde, device=self.device)    
+        X_pde, U_pde = pde_samples
+        X_pde = torch.as_tensor(X_pde, dtype=torch.float32, device=self.device)    
+        U_pde = torch.as_tensor(U_pde, dtype=torch.float32, device=self.device)    
         X_pde.requires_grad_(True)
-        f     = torch.as_tensor(f, device=self.device)
+        f     = torch.as_tensor(f, dtype=torch.float32, device=self.device)
         if sigma is not None:
-            sigma = torch.as_tensor(sigma, device=self.device)
+            sigma = torch.as_tensor(sigma, dtype=torch.float32, device=self.device)
         
         # Convection term
-        V1, V2 = self.critic(X_pde, self.actor(X_pde))    
+        V1, V2 = self.critic(X_pde, U_pde)
         dV_dx_1 = torch.autograd.grad(V1.sum(), X_pde, create_graph=True)[0]
         dV_dx_2 = torch.autograd.grad(V2.sum(), X_pde, create_graph=True)[0]    
         conv_term_1 = (dV_dx_1 * f).sum(dim=1, keepdim=True) 
@@ -474,7 +505,7 @@ class PIRLAgent:
     def update_critic(
             self, weight_td3 = 1, weight_hjb = 0, weight_bdr = 0,
             replay_samples = None, 
-            X_pde = None, f = None, sigma=None, diag=False, 
+            pde_samples = None, f = None, sigma=None, diag=False, 
             X_tgt= None, X_avoid = None
             ):
 
@@ -488,8 +519,8 @@ class PIRLAgent:
             critic_loss +=  weight_td3 * td3_loss
             loss_dict["td"] = td3_loss.item()
             
-        if weight_hjb > 0 and X_pde is not None:
-            hjb_loss = self.calculate_HJB_loss(X_pde, f, sigma, diag)
+        if weight_hjb > 0 and pde_samples is not None:
+            hjb_loss = self.calculate_HJB_loss(pde_samples, f, sigma, diag)
             critic_loss += weight_hjb * hjb_loss
             loss_dict["hjb"] = hjb_loss.item()
             
@@ -513,7 +544,7 @@ class PIRLAgent:
         actor_loss.backward()
         self.actor_optimizer.step()
 
-    def update_target_newtorks(self, tau = 0.005):
+    def update_target_networks(self, tau = 0.005):
 
         # Update the frozen target models
         for param, target_param in zip(self.critic.parameters(), self.critic_target.parameters()):
@@ -524,28 +555,201 @@ class PIRLAgent:
 
 
 ####################################################################
+# Trainer
+####################################################################
+@ray.remote
+class RolloutWorker:
+    def __init__(self, worker_id, env_cls, agent_config, exploration_noise=0.1):
+        self.worker_id = worker_id
+        self.env = env_cls()
+        self.agent = PIRLAgent(agent_config, device="cpu", learner=False)
+        self.exploration_noise = exploration_noise
+
+    def rollout(self, actor_weights_ref=None, critic_weights=None, random_action=False):
+
+        # Initializations
+        state = self.env.reset()
+        done = False
+        episode_reward = 0.0
+        episode_q0     = np.nan
+        states, actions, next_states, rewards, dones = [], [], [], [], []
+
+        # Load network weights
+        if actor_weights_ref is not None:
+            self.agent.actor.load_state_dict(actor_weights_ref)
+        if critic_weights is not None:
+            self.agent.critic.load_state_dict(critic_weights)
+            episode_q0 = self.agent.get_value(state) 
+        
+        # Rollout
+        while not done:            
+            if random_action:
+                action = self.agent.get_random_action()
+            else:
+                action = self.agent.get_action(state)
+                action = action + np.random.normal(0, self.exploration_noise,
+                                                   size=self.agent.action_dim) 
+
+            next_state, reward, done, info = self.env.step(action)
+            states.append(state)
+            actions.append(action)
+            next_states.append(next_state)
+            rewards.append(reward)
+            dones.append(done)
+
+            episode_reward += reward
+            state = next_state
+
+        transitions = (
+            np.asarray(states, dtype=np.float32),
+            np.asarray(actions, dtype=np.float32),
+            np.asarray(next_states, dtype=np.float32),
+            np.asarray(rewards, dtype=np.float32),
+            np.asarray(dones, dtype=np.float32),
+        )
+        logs = {
+            "episode_reward": float(episode_reward),
+            "episode_q0": float(np.asarray(episode_q0).mean()),
+            }
+            
+        return self.worker_id, transitions, logs
+
+@ray.remote
+class Learner:
+    def __init__(self, env_cls, agent_config, device="cuda"):
+        self.env = env_cls()
+        self.agent = PIRLAgent(agent_config, device=device)
+        self.policy_update_cnt = 0
+
+    def add_memory(self, transitions):
+        self.agent.add_batch_to_replay_memory(transitions)
+        return len(self.agent.replay_memory)
+
+    def get_network_weights(self):
+        actor_weights = {
+            k: v.detach().cpu().clone() #From GPU to CPU
+            for k, v in self.agent.actor.state_dict().items()
+        }
+        critic_weights = {
+            k: v.detach().cpu().clone()
+            for k, v in self.agent.critic.state_dict().items()
+        }
+        return actor_weights, critic_weights
+
+    def get_actor_weights(self):
+        return {
+            k: v.detach().cpu()  #From GPU to CPU
+            for k, v in self.agent.actor.state_dict().items()
+        }
+
+    def learn_once(
+        self,
+        minibatch_size=128,
+        policy_update_freq=2,
+        target_update_rate=0.005,
+        loss_weights=(1.0, 0.0, 0.0),
+        num_collocations=(64, 32, 32),
+    ):
+
+        weight_td3, weight_hjb, weight_bdr = loss_weights
+        nPDE, nTarget, nAvoid = num_collocations
+
+        # Sample from replay memory
+        replay_samples = self.agent.sample_from_replay_memory(minibatch_size)
+
+        # Sample for PINN update 
+        X_pde, X_tgt, X_avoid = self.env.sample_pinn_collocation_points(
+            nPDE=nPDE,
+            nTarget=nTarget,
+            nAvoid=nAvoid,
+        )
+        U_pde = self.agent.get_action_with_learn_policy_noise(X_pde)
+        f, sigma, diag = self.env.evaluate_physics_model(X_pde, U_pde)
+
+        # Update critic
+        loss = self.agent.update_critic(
+            weight_td3=weight_td3,
+            weight_hjb=weight_hjb,
+            weight_bdr=weight_bdr,
+            replay_samples=replay_samples,
+            pde_samples= (X_pde, U_pde),
+            f=f,
+            sigma=sigma,
+            diag=diag,
+            X_tgt=X_tgt,
+            X_avoid=X_avoid,
+        )
+
+        # Delayed policy and target updates
+        self.policy_update_cnt = (self.policy_update_cnt + 1) % policy_update_freq
+        if self.policy_update_cnt == 0:
+            # Update actor
+            self.agent.update_actor(replay_samples["state"])
+            
+            # Update target networks
+            self.agent.update_target_networks(tau=target_update_rate)
+            
+        self.agent.itr += 1
+
+        return loss 
+
+    def evaluate_hjb_bdr_loss(self, num_collocations=(64, 32, 32)):
+        nPDE, nTarget, nAvoid = num_collocations
+        X_pde, X_tgt, X_avoid = self.env.sample_pinn_collocation_points(
+            nPDE=nPDE,
+            nTarget=nTarget,
+            nAvoid=nAvoid,
+        )
+        U_pde = self.agent.get_action_with_learn_policy_noise(X_pde)
+        f, sigma, diag = self.env.evaluate_physics_model(X_pde, U_pde)
+        hjb_loss = self.agent.calculate_HJB_loss((X_pde,U_pde), f, sigma, diag) 
+        bdr_loss = self.agent.calculate_boundary_loss(X_tgt, X_avoid)     
+        
+        return (
+            float(hjb_loss.detach().cpu().item()),
+            float(bdr_loss.detach().cpu().item()),
+        )
+    
+    def evaluate_td_loss(self, minibatch_size=128):
+        replay_samples = self.agent.sample_from_replay_memory(minibatch_size)
+        td_loss = self.agent.calculate_TD_critic_loss(**replay_samples)
+
+        return float(td_loss.detach().cpu().item())
+    
+    def save(self, path):
+        self.agent.save(path)
+    
+
+
+
+####################################################################
 # Training loop
 ####################################################################
-def train(env,  
-          agent, 
-          num_episodes, 
-          seed      = 1,
-          log_dir   = None,
-          checkpoint_freq = 1000,
-          verbose   = 1,
-          # ---- weight config ----
-          loss_weights: tuple[float, float, float] = (1, 0, 0), #(td3, hjb, bdr)
-          weight_schedule: tuple[float, float, float, float] | None = None, # (center, steepness, del_start, del_end) 
-          # ---- RL config ----
-          initial_exploration_num = 100,
-          exploration_noise       = 0.1, 
-          minibatch_size          = 128,
-          policy_update_freq      = 2,  
-          target_update_rate      = 0.005,
-          # ---- PINN config ----
-          num_collocations: tuple[int, int, int] = (64, 32, 32) #(nPDE, nTGT, nAVOID)
-          ):
- 
+def train_distributed(
+    env_cls,
+    agent,
+    num_iterations,
+    # ---- train config -------
+    seed=1,
+    num_workers=4,
+    log_dir   = None,
+    log_freq  = 10,
+    checkpoint_freq = 1000,
+    verbose = 1,
+    device  = 'auto',
+    # ---- weight config ----    
+    loss_weights=(1.0, 0.0, 0.0),
+    weight_schedule=None,
+    # ---- PINN config ----
+    num_collocations: tuple[int, int, int] = (64, 32, 32), #(nPDE, nTGT, nAVOID)
+    # ---- RL config ----
+    initial_exploration_num=100,
+    exploration_noise=0.1,
+    minibatch_size=128,
+    policy_update_freq=2,
+    target_update_rate=0.005,    
+):
+
     ######################################
     # Prepare log writer 
     ######################################
@@ -555,226 +759,141 @@ def train(env,
         if verbose >= 1:
             print(f'Progress recorded in {summary_dir}')
             print(f'---> $tensorboard --logdir {summary_dir}')        
-                
+                             
     ######################################
     # Initalizations 
-    ######################################
-    policy_update_cnt = 0    
-    weight_delta = 1
-    weight_td3, weight_hjb, weight_bdr = loss_weights
-    nPDE, nTarget, nAvoid = num_collocations
-    
-    ##########################################
-    # Training loop
-    ##########################################
-    start, end = (agent.itr, agent.itr+num_episodes)
-    if verbose < 1:
-        iterator = range(start+1, end+1)
-    else:
-        iterator = tqdm(range(start+1, end+1), ascii=True, unit='episodes')        
-    
-    for ep in iterator:
+    ######################################  
+    try: 
+
+        ray.init(ignore_reinit_error=True)        
+        workers = [RolloutWorker.remote(i, env_cls, agent.config,  
+                                        exploration_noise=exploration_noise)
+                   for i in range(num_workers)
+                   ]
+        learner = Learner.remote(env_cls, agent.config, device=device)
+        actor_weights, critic_weights = ray.get(learner.get_network_weights.remote())
+        actor_weights_ref = ray.put(actor_weights)
+        critic_weights_ref = ray.put(critic_weights)
+        weight_td3, weight_hjb, weight_bdr = loss_weights
+        #weight_delta = 1.0
+        reward_window = deque(maxlen=100)
+        q0_window     = deque(maxlen=100)
         
-        ##########################
-        # Reset
-        ##########################
-        state, is_done = (env.reset(), False)
-        episode_reward = 0
-        episode_q0     = agent.get_value(state) 
-
-        ##########################
-        # Weight scheduling
-        ##########################
-        if weight_schedule is not None:
-            center      = weight_schedule[0] # ep_num half
-            sharpness   = weight_schedule[1] # steepness
-            delta_start = weight_schedule[2]
-            delta_end   = weight_schedule[3]
-            sigm = 1.0 / (1.0 + np.exp(-sharpness * (ep - center)))
-            if sigm < 0.01:
-                sigm = 0
-            elif sigm > 0.99:
-                sigm = 1
-            weight_delta = delta_start + (delta_end - delta_start) *sigm 
-            weight_td3 = loss_weights[0] * (1-weight_delta)  
-            weight_hjb = loss_weights[1] * weight_delta
-            weight_bdr = loss_weights[2] * weight_delta
+        ######################################
+        # Initial exploration
+        ######################################
+        worker_tasks = [worker.rollout.remote(random_action=True) for worker in workers]
+        buffer_size = 0
+    
+        while buffer_size < initial_exploration_num:
+            finished, worker_tasks = ray.wait(worker_tasks, num_returns=1)
+            worker_id, transitions, logs = ray.get(finished[0])
+            buffer_size = ray.get( learner.add_memory.remote(transitions) )
+            worker_tasks.append(workers[worker_id].rollout.remote(random_action=True))
         
-        #######################################################
-        # Iterate until episode ends 
-        #######################################################
-        while not is_done:
-            
-            ####################
-            # Get action
-            ####################
-            # Initial random exploration
-            if ep  <= initial_exploration_num:
-                act_fn = agent.config.actor_output_activation          
-                if act_fn == "tanh":
-                    # [-max_action, max_action]
-                    action = np.random.rand(agent.action_dim) * 2 - 1                
-                elif act_fn == "sigmoid":
-                    # [0, max_action]
-                    action = np.random.rand(agent.action_dim)
-                else:
-                    raise ValueError(f"Unsupported actor_output_activation: {act_fn}")
-
-            # Policy-based exploration
-            else:
-                act_fn = agent.config.actor_output_activation
-                noise  = np.random.normal(0, exploration_noise, size=agent.action_dim)
-                action = agent.get_action(state) + noise
-                if act_fn == "tanh":
-                    action =  action.clip(-1, 1)              
-                elif act_fn == "sigmoid":
-                    action = action.clip(0,1)
-                else:
-                    raise ValueError(f"Unsupported actor_output_activation: {act_fn}")
-
-            ###############################
-            # Make a step (Rollout)
-            ###############################
-            # Env step
-            next_state, reward, is_done, info = env.step(action)
-            episode_reward += reward
-            
-            # Add to replay memory
-            agent.add_to_replay_memory(state, action, next_state, reward, is_done)
-            
-            # Update state
-            state = next_state
-
-            ###############################
-            # Learn
-            ###############################
-            if ep > initial_exploration_num: 
+        ##########################################
+        # Start async learner process
+        ##########################################
+        learner_task = learner.learn_once.remote(
+            minibatch_size=minibatch_size,
+            loss_weights=loss_weights,
+            num_collocations=num_collocations,
+        )
+        
+        ##########################################
+        # Training loop
+        ##########################################    
+        start, end = (agent.itr, agent.itr+num_iterations)
+        pbar = tqdm(range(start+1, end+1), ascii=True, unit='updates') if verbose >= 1 else None
+        update_count = start
+        
+        while update_count < end:
+            ######################
+            # Worker
+            ######################
+            finished_workers, worker_tasks = ray.wait(worker_tasks, num_returns=1, timeout=0.0)    
+            if finished_workers:
+                worker_id, transitions, logs = ray.get(finished_workers[0])        
+                learner.add_memory.remote(transitions)
+                reward_window.append(logs["episode_reward"])
+                q0_window.append(logs["episode_q0"])
+                worker_tasks.append( workers[worker_id].rollout.remote(actor_weights_ref, critic_weights_ref) )
+        
+            ###################
+            # Learner
+            ###################
+            finished_learner, _ = ray.wait([learner_task], timeout=0.0)        
+            if finished_learner:
                 
-                # Sample from replay memory
-                replay_samples = agent.sample_from_replay_memory(minibatch_size)
-                
-                # Sample for PINN update 
-                X_pde, X_tgt, X_avoid = env.sample_pinn_collocation_points(nPDE=nPDE, 
-                                                                           nTarget=nTarget, 
-                                                                           nAvoid=nAvoid
-                                                                           )
-                #U_pde = agent.get_action(X_pde)
-                U_pde = agent.get_action_with_learn_policy_noise(X_pde)
-
-                f, sigma, diag  = env.evaluate_physics_model(X_pde, U_pde)
-
-                # Update critic
-                loss = agent.update_critic(weight_td3 = weight_td3, 
-                                            weight_hjb = weight_hjb,  
-                                            weight_bdr = weight_bdr,
-                                            replay_samples = replay_samples, 
-                                            X_pde = X_pde, f = f, sigma=sigma, diag=diag,
-                                            X_tgt = X_tgt, X_avoid = X_avoid
-                                            )
-                     
-                # Delayed policy updates
-                policy_update_cnt = (policy_update_cnt+1) % policy_update_freq
-                if policy_update_cnt == 0:
+                # Learner results
+                loss = ray.get(finished_learner[0])
+                actor_weights, critic_weights = ray.get(learner.get_network_weights.remote())
+                actor_weights_ref = ray.put(actor_weights)
+                critic_weights_ref = ray.put(critic_weights)
+    
+                update_count += 1
+                if pbar is not None:
+                    pbar.update(1)
+                    pbar.set_postfix({
+                        "td": f"{loss['td']:.2e}",
+                        "hjb": f"{loss['hjb']:.2e}",
+                    })
+    
+                # Log
+                if update_count % log_freq == 0 and log_dir is not None:
                     
-                    # Update actor
-                    agent.update_actor(replay_samples["state"])
+                    if loss["td"] == 0:
+                        loss["td"] = ray.get(learner.evaluate_td_loss.remote(minibatch_size))
 
-                    # Update target networks
-                    agent.update_target_newtorks(tau = target_update_rate) 
-            else:
-                loss = {"td":0, "hjb":0, "bdr": 0}
-        
-        #############################
-        # Episode cleanup        
-        #############################
-        # Update agent counter
-        agent.itr = ep
-        
-        # Evaluate Loss terms (if needed)
-        if loss["td"] == 0:
-            replay_samples  = agent.sample_from_replay_memory(minibatch_size)
-            loss["td"] = agent.calculate_TD_critic_loss(**replay_samples)
-        if loss["hjb"] == 0 or loss["bdr"] == 0:
-            X_pde, X_safe, X_lat = env.sample_pinn_collocation_points(nPDE=nPDE, 
-                                                                      nTarget=nTarget, 
-                                                                      nAvoid=nAvoid
-                                                                      )
-            U_pde = agent.get_action(X_pde)
-            f, sigma, diag   = env.evaluate_physics_model(X_pde, U_pde)
-            loss["hjb"] = agent.calculate_HJB_loss(X_pde, f, sigma, diag) 
-            loss["bdr"] = agent.calculate_boundary_loss(X_safe, X_lat)
+                    if loss["hjb"] == 0 or loss["bdr"] == 0:
+                        loss["hjb"], loss["bdr"] = ray.get(learner.evaluate_hjb_bdr_loss.remote(num_collocations)                        )
+                                    
+                    summary_writer.add_scalar("RL/Average Reward", np.mean(reward_window), update_count)
+                    summary_writer.add_scalar("RL/Episode Q0",     np.nanmean(q0_window),  update_count)
+                    summary_writer.add_scalar("Loss/RL",  loss["td"],  update_count)
+                    summary_writer.add_scalar("Loss/HJB", loss["hjb"], update_count)
+                    summary_writer.add_scalar("Loss/BDR", loss["bdr"], update_count)
+                    summary_writer.add_scalar("Weights/RL",  weight_td3, update_count)
+                    summary_writer.add_scalar("Weights/HJB", weight_hjb, update_count)
+                    summary_writer.add_scalar("Weights/BDR", weight_bdr, update_count)
+                    summary_writer.flush()
+    
+                if update_count % checkpoint_freq == 0 or update_count == end:     
+                    ray.get( learner.save.remote(summary_dir + f'/ckpt-{update_count}') )
+                
+                ###############################
+                # Update Loss Weights
+                ###############################
+                if weight_schedule is not None:                    
+                    center    = weight_schedule["center"]
+                    sharpness = weight_schedule["sharpness"]
+                    w_start   = np.asarray(weight_schedule["initial"], dtype=float)
+                    w_end     = np.asarray(weight_schedule["final"],   dtype=float)
+
+                    sigm = 1.0 / (1.0 + np.exp(-sharpness * (update_count - center)))
+                    if sigm < 0.01:
+                        sigm = 0.0
+                    elif sigm > 0.99:
+                        sigm = 1.0         
+                    weights = w_start + (w_end - w_start) * sigm
+                    weight_td3, weight_hjb, weight_bdr = weights.tolist()
+                
+                #####################################
+                # Restart learner process 
+                #####################################
+                learner_task = learner.learn_once.remote(
+                    minibatch_size=minibatch_size,
+                    loss_weights=(weight_td3, weight_hjb, weight_bdr),
+                    num_collocations=num_collocations,
+                )
             
+        if pbar is not None:
+            pbar.close()
+    
+    finally:
+        print('Closing ray instance')
+        ray.shutdown()     
         
-        ###################################################
-        # Log
-        ###################################################
-        if log_dir is not None: 
-            summary_writer.add_scalar("RL/Episode Reward", episode_reward, ep)
-            summary_writer.add_scalar("RL/Episode Q0",     episode_q0,     ep)
-            summary_writer.add_scalar("Loss/RL",  loss["td"],  ep)
-            summary_writer.add_scalar("Loss/HJB", loss["hjb"], ep)
-            summary_writer.add_scalar("Loss/BDR", loss["bdr"], ep)
-            summary_writer.add_scalar("Weights/RL",  weight_td3, ep)
-            summary_writer.add_scalar("Weights/HJB", weight_hjb, ep)
-            summary_writer.add_scalar("Weights/BDR", weight_bdr, ep)
-            
-
-            summary_writer.flush()
-            
-            if ep % checkpoint_freq == 0 or ep == end:                
-                agent.save(summary_dir+f'/ckpt-{ep}')
-
-
-
-
-
-##########################################################
-# Test of PDE loss calculation
-##########################################################
-if __name__ == "__main__":
-
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    
-    
-    config = AgentConfig(
-        state_dim=4,
-        action_dim=1,
-    )
-    agent = PIRLAgent(config, device)
-
-    ##################################
-    # HJB loss calculation 
-    ##################################    
-    #---- Diagonal case ----
-    Ns = 5 # num of samples
-    Xdim = 4 # state dim
-    X_pde = np.random.randn(Ns, Xdim).astype(np.float32)
-    f     = np.random.randn(Ns, Xdim).astype(np.float32)
-    
-    sigma_diag = np.zeros((Ns, Xdim), dtype=np.float32)
-    sigma_diag[:, :3] = 0.1  # 最初の3成分非ゼロ
         
-    t0 = time.perf_counter()
-    for i in range(10):
-        loss = agent._calculate_HJB_loss(X_pde, f, sigma_diag, diag=True)
-    t1 = time.perf_counter()
-    print("time (diag): ", t1-t0)
-
-    #--- Full sigma ---
-    Ns = 5
-    Xdim = 4
-    Nw = 4
-    
-    sigma_full = np.zeros((Ns, Xdim, Nw), dtype=np.float32)
-    sigma_full[:, 0, 0] = 0.1
-    sigma_full[:, 0, 1] = 0.05
-    sigma_full[:, 1, 1] = 0.1 #0.02
-    sigma_full[:, 2, 2] = 0.1 #0.02
-    sigma_full[:, 3, 3] = 0.1 #0.02
-     
-    t0 = time.perf_counter()
-    for i in range(10):
-        loss_full = agent._calculate_HJB_loss(X_pde, f, sigma_full, diag=False)
-    t1 = time.perf_counter()    
-    print("time (full): ", t1-t0)
-
+        
+        

@@ -14,9 +14,9 @@ from agent.TD3 import PIRLAgent
 #log_dir     = 'logs/0430_2053_seed_1'
 #check_point = '14000'
 
-log_dir = 'logs/1D/0509_0555_seed_1'
-log_dir = 'logs/1D/0508_0739_seed_1'
-check_point = '20000'
+log_dir = 'logs/1D/0525_0640_seed_5'
+log_dir = 'logs/1D/0526_2345_seed_2'
+check_point = '50000'
 
 agent = PIRLAgent.from_checkpoint(log_dir+'/ckpt-'+check_point)
 
@@ -30,7 +30,7 @@ from examples.env_1d_reach import Env
 # Calculate Safe probability    
 ################################
 num_grid = 100
-T = 1.0
+T = 2.0
 #x1 = np.linspace(-1.5, 1.5, num=num_grid)
 #x2 = np.linspace(-1.2, 1.2, num=num_grid)
 #X1, X2 = np.meshgrid(x1, x2, indexing='ij')
