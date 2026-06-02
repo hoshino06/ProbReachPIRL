@@ -19,6 +19,17 @@ from dataclasses import dataclass
 from agent.TD3_PIRL_ray import PIRLAgent, AgentConfig, train_distributed
 
 
+parser = argparse.ArgumentParser()
+parser.add_argument("--case",   default="drift")       # "1D", "2D", "drift"
+parser.add_argument("--method", default="scheduling") # "td3", "pinn", "scheduling"
+parser.add_argument("--seed",   default=1, type=int)  
+parser.add_argument("--checkpoint", default=None)
+parser.add_argument("--device", default="auto")  # auto, cpu, cuda
+parser.add_argument("--verbose", default=1, type=int)
+parser.add_argument("--num_workers", default=4, type=int)
+args = parser.parse_args()
+
+
 @dataclass
 class CaseConfig:
     env_module: str
@@ -32,34 +43,38 @@ class CaseConfig:
     learn_policy_noise: float
     learn_noise_clip: float
     policy_update_freq: int
+    replay_memory_size: int
     initial_exploration_num: int
     exploration_noise: float
+    minibatch_size: int
     weight_schedule: dict|None = None
 
 CASE_CONFIGS = {
     "1D": CaseConfig(
         # Basic settings
         env_module   = "examples.env_1d_reach",
-        log_dir      = "logs/1D",
-        num_episodes = 100_000,
-        checkpoint_freq  = 10_000,
+        log_dir      = f"logs/1D/{args.method}",
+        num_episodes = 200_000,
+        checkpoint_freq  = 50_000,
         # NN settings
-        critic_hidden_dims = (32,32,32,32),
+        critic_hidden_dims = (32,32,32),
         critic_lr = 1e-4,
         actor_lr  = 1e-4,
         weight_schedule = {
-            "initial": (0.5, 0.5, 0.5), 
-            "final":   (0.0, 1.0, 1.0),
-            "center": 25_000,
-            "sharpness": 0.0005 }, 
+            "initial": (1.0, 0.0, 0.0), #(TD3, HJB, BDR)
+            "final":   (0.0, 1.0, 1.0), 
+            "center": 50_000,
+            "sharpness": 0.0001 }, 
         # PINN
         num_collocations   = (1000, 100, 100),
         learn_policy_noise = 0.3, #0.2
         learn_noise_clip   = 1.0, #0.5
         # RL (policy)
-        policy_update_freq = 5,
+        policy_update_freq = 10,
+        replay_memory_size = 5000,
         initial_exploration_num = 1000,
         exploration_noise = 0.2,
+        minibatch_size=128
     ),
     "2D": CaseConfig(
         env_module   = "examples.env_2d_avoid",
@@ -75,27 +90,31 @@ CASE_CONFIGS = {
         learn_policy_noise = 0.2,
         learn_noise_clip   = 0.5,
         # RL
-        policy_update_freq=50,
+        policy_update_freq = 10,
+        replay_memory_size = 5000,
         initial_exploration_num=1000,
         exploration_noise=0.2,
+        minibatch_size=128
     ),
     "drift": CaseConfig(
         env_module   ="examples.env_drifting_control",
-        log_dir      ="logs/drift",
-        num_episodes = 30000,
-        checkpoint_freq  = 1000,
+        log_dir      =f"logs/drift/{args.method}",
+        num_episodes = 200_000,
+        checkpoint_freq  = 50_000,
         # NN settings
-        critic_hidden_dims = (64,64),
+        critic_hidden_dims = (64,64,64),
         critic_lr = 1e-4,
         actor_lr  = 1e-4,
-        # PINN        
-        num_collocations = (2000, 200, 200),
+        # PINN
+        num_collocations = (10_000, 1000, 1000),
         learn_policy_noise = 0.2,
         learn_noise_clip   = 0.5,
         # RL
-        policy_update_freq=50,
-        initial_exploration_num=2000,
+        policy_update_freq = 10,
+        replay_memory_size = 100_000,
+        initial_exploration_num = 10_000,
         exploration_noise=0.2,
+        minibatch_size=128
     ),
 }
 
@@ -135,16 +154,7 @@ def set_seed(seed):
 
 def main():
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--case",   default="drift")       # "1D", "2D", "drift"
-    parser.add_argument("--method", default="scheduling") # "td3", "pinn", "scheduling"
-    parser.add_argument("--seed",   default=1, type=int)  
-    parser.add_argument("--checkpoint", default=None)
-    parser.add_argument("--device", default="auto")  # auto, cpu, cuda
-    parser.add_argument("--verbose", default=1, type=int)
-    parser.add_argument("--num_workers", default=4, type=int)
-    args = parser.parse_args()
-
+    print(f"[seed={args.seed}] started")
     set_seed(args.seed)
 
     case_cfg = CASE_CONFIGS[args.case]
@@ -157,6 +167,7 @@ def main():
         critic_hidden_dims= case_cfg.critic_hidden_dims,
         critic_lr  = case_cfg.critic_lr,
         actor_lr   = case_cfg.actor_lr,
+        replay_memory_size = case_cfg.replay_memory_size,
         learn_policy_noise = case_cfg.learn_policy_noise,
         learn_noise_clip   = case_cfg.learn_noise_clip,
     )
@@ -207,11 +218,13 @@ def main():
         num_collocations=case_cfg.num_collocations,
         initial_exploration_num=case_cfg.initial_exploration_num,
         exploration_noise=case_cfg.exploration_noise,
-        minibatch_size=128,
+        minibatch_size=case_cfg.minibatch_size,
         policy_update_freq=case_cfg.policy_update_freq,
         target_update_rate=0.005,
     )
 
+    print(f"[seed={args.seed}] finished")
+    
 if __name__ == "__main__":
     main()
 

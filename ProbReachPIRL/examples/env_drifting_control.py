@@ -28,7 +28,7 @@ class Env(object):
         # Basic dimensions
         # ------------------------------------------------------------
         self.dt = 0.02
-        self.Tmax = 2.0
+        self.Tmax = 5.0
 
         # X = [T, ey, epsi, vx, vy, r, delta, mu]
         self.state_dim = 8
@@ -543,19 +543,26 @@ class Env(object):
     ################################################
     def reset(self):
         """Sample an initial state near, but not exactly at, the drift-like target."""
-        T = self.Tmax
+        T = self.Tmax #np.random.uniform(0.2, self.Tmax)
 
-        ey = np.random.uniform(-1.0, 1.0)
-        epsi = self.epsi_d + np.random.uniform(-0.35, 0.35)
-        vx = np.random.uniform(6.0, 10.0)
+        # ey = np.random.uniform(-1.0, 1.0)
+        # epsi = self.epsi_d + np.random.uniform(-0.35, 0.35)
+        # vx = np.random.uniform(6.0, 10.0)
+        # beta0 = self.beta_d + np.random.uniform(-0.35, 0.35)
+        # vy = vx * np.tan(beta0)
+        # r = self.r_d + np.random.uniform(-0.9, 0.9)
+        # delta = self.delta_d + np.random.uniform(-0.25, 0.25)
+        # mu = np.clip(self.mu_d + np.random.uniform(-0.15, 0.15), self.mu_min, self.mu_max)
 
-        beta0 = self.beta_d + np.random.uniform(-0.35, 0.35)
+        ey = np.random.uniform(-0.8, 0.8)
+        epsi = self.epsi_d + np.random.uniform(-0.01, 0.01)
+        vx = np.random.uniform(7.9, 8.1)
+        beta0 = self.beta_d + np.random.uniform(-0.2, 0.2)
         vy = vx * np.tan(beta0)
-
-        r = self.r_d + np.random.uniform(-0.9, 0.9)
-        delta = self.delta_d + np.random.uniform(-0.25, 0.25)
-        mu = np.clip(self.mu_d + np.random.uniform(-0.15, 0.15), self.mu_min, self.mu_max)
-
+        r = self.r_d + np.random.uniform(-0.2, 0.2)
+        delta = self.delta_d + np.random.uniform(-0.01, 0.01)
+        mu = np.clip(self.mu_d + np.random.uniform(-0.001, 0.001), self.mu_min, self.mu_max)
+        
         self.state = np.array([T, ey, epsi, vx, vy, r, delta, mu], dtype=np.float32)
         return self.scale_state(self.state)
 
