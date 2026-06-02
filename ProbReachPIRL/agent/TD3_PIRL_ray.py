@@ -733,7 +733,7 @@ def train_distributed(
     seed=1,
     num_workers=4,
     log_dir   = None,
-    log_freq  = 10,
+    log_freq  = 100,
     checkpoint_freq = 1000,
     verbose = 1,
     device  = 'auto',
@@ -765,7 +765,7 @@ def train_distributed(
     ######################################  
     try: 
 
-        ray.init(ignore_reinit_error=True)        
+        ray.init(ignore_reinit_error=True, include_dashboard=False)        
         workers = [RolloutWorker.remote(i, env_cls, agent.config,  
                                         exploration_noise=exploration_noise)
                    for i in range(num_workers)

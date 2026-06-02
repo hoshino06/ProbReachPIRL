@@ -36,14 +36,16 @@ def true_reach_probability(T, x, mu=1.0, sigma=1.0, x_target=2.0):
 #############################
 # Settings
 #############################
-T = 2.0
+T = 1.0
 num_grid = 100
 x = np.linspace(-2.0, 2.0, num_grid)
 
 agents = {
     "RL":   PIRLAgent.from_checkpoint('logs/1D/0508_1853_seed_1/ckpt-20000'),
     "PINN": PIRLAgent.from_checkpoint('logs/1D/0508_0739_seed_1/ckpt-20000'),
-    "PIRL (Proposed)": PIRLAgent.from_checkpoint('logs/1D/0509_0555_seed_1/ckpt-20000'),
+    #"PIRL (Proposed)": PIRLAgent.from_checkpoint('logs/1D/0509_0555_seed_1/ckpt-20000'),
+    "PIRL (Proposed)": PIRLAgent.from_checkpoint('logs/1D/scheduling/0528_2258_seed_1/ckpt-200000'),
+
 }
 
 plt.rcParams.update({
