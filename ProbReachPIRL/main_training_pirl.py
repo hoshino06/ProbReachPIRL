@@ -13,6 +13,8 @@ import random
 import argparse
 import torch
 import importlib
+import os
+import sys
 from dataclasses import dataclass
 
 #from agent.TD3 import PIRLAgent, AgentConfig, train
@@ -27,6 +29,42 @@ parser.add_argument("--checkpoint", default=None)
 parser.add_argument("--device", default="auto")  # auto, cpu, cuda
 parser.add_argument("--verbose", default=1, type=int)
 parser.add_argument("--num_workers", default=4, type=int)
+parser.add_argument("--num_updates", default=1_000_000, type=int,
+                    help="Number of training updates.")
+parser.add_argument("--num_collocations", default=None, type=int, nargs=3,
+                    metavar=("NPDE", "NTARGET", "NAVOID"),
+                    help="Override PINN collocation counts.")
+parser.add_argument("--learner_num_gpus", default=None, type=float,
+                    help="Ray GPU resource assigned to each Learner actor. Omit for legacy behavior.")
+parser.add_argument("--hjb_laplacian_mode", default="loop", choices=("loop", "batched"),
+                    help="How to compute diagonal Hessian terms in the HJB diffusion term.")
+parser.add_argument("--schedule_center", default=None, type=int,
+                    help="Override weight_schedule center for scheduling method.")
+parser.add_argument("--schedule_sharpness", default=None, type=float,
+                    help="Override weight_schedule sharpness for scheduling method.")
+parser.add_argument("--schedule_final", default=None, type=float, nargs=3,
+                    metavar=("WTD3", "WHJB", "WBDR"),
+                    help="Override final weights for scheduling method.")
+parser.add_argument("--schedule_initial", default=None, type=float, nargs=3,
+                    metavar=("WTD3", "WHJB", "WBDR"),
+                    help="Override initial weights for scheduling method.")
+parser.add_argument("--log_tag", default=None,
+                    help="Optional tag appended to the TensorBoard run directory.")
+parser.add_argument("--drift_reset_scale", default=1.0, type=float,
+                    help="Multiplier for the drift environment reset distribution.")
+parser.add_argument("--drift_reset_mode", default="full", choices=("full", "mixture"),
+                    help="Drift reset distribution mode.")
+parser.add_argument("--drift_reset_mixture_probs", default="0.45,0.45,0.10",
+                    help="Comma-separated beta_r,ey_epsi,full probabilities for mixture reset.")
+parser.add_argument("--drift_dt", default=None, type=float,
+                    help="Override the drifting-control environment time step.")
+parser.add_argument("--initial_exploration_policy", default="random",
+                    choices=("random", "policy"),
+                    help="Use random actions or the current policy to fill the initial replay buffer.")
+parser.add_argument("--schedule_time_base", default="global", choices=("global", "local"),
+                    help="Use absolute update count or fine-tune-local count for weight scheduling.")
+parser.add_argument("--log_dir_override", default=None,
+                    help="Override CaseConfig.log_dir for this run.")
 args = parser.parse_args()
 
 
@@ -34,7 +72,6 @@ args = parser.parse_args()
 class CaseConfig:
     env_module: str
     log_dir: str
-    num_episodes: int
     checkpoint_freq: int
     critic_hidden_dims: tuple
     critic_lr: float
@@ -54,7 +91,6 @@ CASE_CONFIGS = {
         # Basic settings
         env_module   = "examples.env_1d_reach",
         log_dir      = f"logs/1D/{args.method}",
-        num_episodes = 200_000,
         checkpoint_freq  = 50_000,
         # NN settings
         critic_hidden_dims = (32,32,32),
@@ -79,7 +115,6 @@ CASE_CONFIGS = {
     "2D": CaseConfig(
         env_module   = "examples.env_2d_avoid",
         log_dir      = "logs/2D",
-        num_episodes = 20000,
         checkpoint_freq = 2000,
         # NN settings
         critic_hidden_dims = (64,64),
@@ -99,14 +134,19 @@ CASE_CONFIGS = {
     "drift": CaseConfig(
         env_module   ="examples.env_drifting_control",
         log_dir      =f"logs/drift/{args.method}",
-        num_episodes = 200_000,
-        checkpoint_freq  = 50_000,
+        checkpoint_freq  = 100_000,
         # NN settings
         critic_hidden_dims = (64,64,64),
         critic_lr = 1e-4,
         actor_lr  = 1e-4,
+        weight_schedule = {
+            "initial": (1.0, 0.0, 0.0),  # (TD3, HJB, BDR)
+            "final":   (0.0, 1.0, 1.0),
+            "center": 500_000,
+            "sharpness": 1.0e-5,
+        },
         # PINN
-        num_collocations = (10_000, 1000, 1000),
+        num_collocations = (1000, 100, 100),
         learn_policy_noise = 0.2,
         learn_noise_clip   = 0.5,
         # RL
@@ -114,7 +154,7 @@ CASE_CONFIGS = {
         replay_memory_size = 100_000,
         initial_exploration_num = 10_000,
         exploration_noise=0.2,
-        minibatch_size=128
+        minibatch_size = 256
     ),
 }
 
@@ -130,9 +170,24 @@ def get_loss_setting(method, case):
 
     if method == "scheduling":
         cfg = CASE_CONFIGS[case]
-        loss_weights = cfg.weight_schedule['initial']
-        weight_schedule = cfg.weight_schedule
-        return loss_weights, weight_schedule
+        if cfg.weight_schedule is None:
+            raise ValueError(f"Case {case} does not define a weight schedule.")
+        schedule = {
+            "initial": tuple(cfg.weight_schedule["initial"]),
+            "final": tuple(cfg.weight_schedule["final"]),
+            "center": cfg.weight_schedule["center"],
+            "sharpness": cfg.weight_schedule["sharpness"],
+        }
+        if args.schedule_center is not None:
+            schedule["center"] = args.schedule_center
+        if args.schedule_sharpness is not None:
+            schedule["sharpness"] = args.schedule_sharpness
+        if args.schedule_initial is not None:
+            schedule["initial"] = tuple(args.schedule_initial)
+        if args.schedule_final is not None:
+            schedule["final"] = tuple(args.schedule_final)
+        loss_weights = schedule["initial"]
+        return loss_weights, schedule
 
     raise ValueError(f"Unknown method: {method}")
 
@@ -156,8 +211,15 @@ def main():
 
     print(f"[seed={args.seed}] started")
     set_seed(args.seed)
+    os.environ["DRIFT_RESET_SCALE"] = str(args.drift_reset_scale)
+    os.environ["DRIFT_RESET_MODE"] = str(args.drift_reset_mode)
+    os.environ["DRIFT_RESET_MIXTURE_PROBS"] = str(args.drift_reset_mixture_probs)
+    if args.drift_dt is not None:
+        os.environ["DRIFT_DT"] = str(args.drift_dt)
 
     case_cfg = CASE_CONFIGS[args.case]
+    if args.log_dir_override is not None:
+        case_cfg.log_dir = args.log_dir_override
     env_cls = make_env_cls(args.case)
     env = make_env(args.case)
     
@@ -170,12 +232,14 @@ def main():
         replay_memory_size = case_cfg.replay_memory_size,
         learn_policy_noise = case_cfg.learn_policy_noise,
         learn_noise_clip   = case_cfg.learn_noise_clip,
+        hjb_laplacian_mode = args.hjb_laplacian_mode,
     )
 
     if args.checkpoint is None:
         agent = PIRLAgent(agent_config, device=args.device)
     else:
         agent = PIRLAgent.from_checkpoint(args.checkpoint)
+        agent.config.hjb_laplacian_mode = args.hjb_laplacian_mode
 
     loss_weights, weight_schedule = get_loss_setting(args.method, args.case)
 
@@ -185,12 +249,28 @@ def main():
     print(f"Seed   : {args.seed}")
     print(f"Device : {args.device}")
     print(f"Log dir: {case_cfg.log_dir}")
+    print(f"Updates: {args.num_updates}")
+    print(f"Colloc.: {tuple(args.num_collocations) if args.num_collocations is not None else case_cfg.num_collocations}")
+    print(f"Learner GPUs: {args.learner_num_gpus if args.learner_num_gpus is not None else 'legacy'}")
+    print(f"HJB Lap.: {args.hjb_laplacian_mode}")
+    print(f"Reset scale: {args.drift_reset_scale}")
+    print(f"Reset mode: {args.drift_reset_mode}")
+    if args.drift_reset_mode == "mixture":
+        print(f"Reset mixture probs: {args.drift_reset_mixture_probs}")
+    print(f"Drift dt: {env.dt if args.case == 'drift' else '-'}")
+    print(f"Policy update freq: {case_cfg.policy_update_freq}")
+    print(f"Initial exploration: {args.initial_exploration_policy}")
+    if weight_schedule is not None:
+        print(f"Schedule: center={weight_schedule['center']}, sharpness={weight_schedule['sharpness']}, final={weight_schedule['final']}")
+        print(f"Schedule time base: {args.schedule_time_base}")
+    print(f"Log tag: {args.log_tag if args.log_tag else '-'}")
     print("--------------------------------------------")
+    sys.stdout.flush()
 
     # train(
     #     env,
     #     agent,
-    #     num_episodes = case_cfg.num_episodes,
+    #     num_iterations = args.num_updates,
     #     seed         = args.seed,
     #     log_dir      = case_cfg.log_dir,
     #     checkpoint_freq = case_cfg.checkpoint_freq,
@@ -206,17 +286,21 @@ def main():
     train_distributed(
         env_cls=env_cls,
         agent=agent,
-        num_iterations=case_cfg.num_episodes,
+        num_iterations=args.num_updates,
         seed=args.seed,
         num_workers=args.num_workers,
         log_dir=case_cfg.log_dir,
         checkpoint_freq=case_cfg.checkpoint_freq,
         verbose=args.verbose,
         device=args.device,
+        learner_num_gpus=args.learner_num_gpus,
+        log_tag=args.log_tag,
         loss_weights=loss_weights,
         weight_schedule=weight_schedule,
-        num_collocations=case_cfg.num_collocations,
+        weight_schedule_time_base=args.schedule_time_base,
+        num_collocations=tuple(args.num_collocations) if args.num_collocations is not None else case_cfg.num_collocations,
         initial_exploration_num=case_cfg.initial_exploration_num,
+        initial_exploration_policy=args.initial_exploration_policy,
         exploration_noise=case_cfg.exploration_noise,
         minibatch_size=case_cfg.minibatch_size,
         policy_update_freq=case_cfg.policy_update_freq,
@@ -227,4 +311,3 @@ def main():
     
 if __name__ == "__main__":
     main()
-

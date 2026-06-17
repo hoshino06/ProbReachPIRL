@@ -18,6 +18,7 @@ Avoid set:
     road departure, excessive sideslip, excessive yaw rate,
     or loss of forward speed.
 """
+import os
 import numpy as np
 from scipy.stats import qmc
 from scipy.optimize import least_squares
@@ -27,7 +28,7 @@ class Env(object):
         # ------------------------------------------------------------
         # Basic dimensions
         # ------------------------------------------------------------
-        self.dt = 0.02
+        self.dt = float(os.environ.get("DRIFT_DT", "0.02"))
         self.Tmax = 5.0
 
         # X = [T, ey, epsi, vx, vy, r, delta, mu]
@@ -89,29 +90,45 @@ class Env(object):
         self.sigma_delta = 0.01
         self.sigma_mu = 0.0
 
+        # Training distribution controls.  scale=1 samples nearly the full
+        # plotting box for ey, epsi, beta, and r; scale=0 collapses to the
+        # mu-dependent drift equilibrium.
+        self.reset_scale = float(os.environ.get("DRIFT_RESET_SCALE", "1.0"))
+        self.reset_mode = os.environ.get("DRIFT_RESET_MODE", "full").lower()
+        self.reset_mixture_probs = self._parse_reset_mixture_probs(
+            os.environ.get("DRIFT_RESET_MIXTURE_PROBS", "0.45,0.45,0.10")
+        )
+        self.reset_epsi_min = -0.2
+        self.reset_epsi_max = 0.8
+
         # ------------------------------------------------------------
         # Drift equilibrium target
         # ------------------------------------------------------------
-        # We specify vx_d, mu_d, and kappa_d.
-        # The remaining quantities ey_d(=0), epsi_d, vy_d, r_d,
-        # delta_d, and Fx_d are obtained by solving the steady-state
-        # equations of the path-relative dynamic bicycle model.
+        # We specify a fixed path curvature and solve drift equilibria
+        # over the episode-level friction range.  The remaining target
+        # quantities are interpolated as functions of the current mu.
         # Curvature chosen so that the path-relative equilibrium is
         # consistent with the paper's drift point:
         # beta ~= -20.44 deg, r ~= 0.600 rad/s, Ux = 8 m/s.
         self.kappa_ref = 0.600 * np.cos(np.deg2rad(-20.44)) / 8.0
-        self.set_drift_equilibrium(
-            vx_d = 8.0,
-            mu_d = 0.55,
-            verbose = 2, 
+        self.vx_d = 8.0
+        self.mu_d = 0.55
+        self.mu_target_min = 0.50 #0.40
+        self.mu_target_max = 0.60 #0.80
+        self.mu_grid = np.linspace(self.mu_target_min, self.mu_target_max, 17, dtype=np.float32)
+        self.build_drift_equilibrium_table(
+            vx_d=self.vx_d,
+            mu_grid=self.mu_grid,
+            nominal_mu=self.mu_d,
+            verbose=0,
         )
 
         # Target tolerances
-        self.ey_tol = 0.25
-        self.epsi_tol = np.deg2rad(8.0)
-        self.vx_tol = 2.0
-        self.beta_tol = np.deg2rad(8.0)
-        self.r_tol = 0.35
+        self.ey_tol = 0.2
+        self.epsi_tol = np.deg2rad(4.0)
+        self.vx_tol = 0.5
+        self.beta_tol = np.deg2rad(4.0)
+        self.r_tol = 0.2
         self.delta_tol = np.deg2rad(10.0)
 
     ################################################
@@ -209,16 +226,19 @@ class Env(object):
         vx = X[:, 3]
         r = X[:, 5]
         delta = X[:, 6]
+        mu = X[:, 7]
         beta = self.beta(X)
+        target = self.get_drift_target(mu)
 
         mask = (
-            (np.abs(ey - self.ey_d) <= self.ey_tol)
-            & (np.abs(epsi - self.epsi_d) <= self.epsi_tol)
-            & (np.abs(vx - self.vx_d) <= self.vx_tol)
-            & (np.abs(beta - self.beta_d) <= self.beta_tol)
-            & (np.abs(r - self.r_d) <= self.r_tol)
-            & (np.abs(delta - self.delta_d) <= self.delta_tol)
-            & (np.abs(X[:, 7] - self.mu_d) <= 0.20)
+            (mu >= self.mu_target_min)
+            & (mu <= self.mu_target_max)
+            & (np.abs(ey - target["ey"]) <= self.ey_tol)
+            & (np.abs(epsi - target["epsi"]) <= self.epsi_tol)
+            & (np.abs(vx - target["vx"]) <= self.vx_tol)
+            & (np.abs(beta - target["beta"]) <= self.beta_tol)
+            & (np.abs(r - target["r"]) <= self.r_tol)
+            & (np.abs(delta - target["delta"]) <= self.delta_tol)
         )
 
         return bool(mask[0]) if single else mask
@@ -537,31 +557,175 @@ class Env(object):
 
         return sol
 
+    def build_drift_equilibrium_table(self, vx_d=8.0, mu_grid=None, nominal_mu=0.55, verbose=0):
+        """Solve and store drift equilibrium targets over a fixed-kappa mu grid."""
+        if mu_grid is None:
+            mu_grid = np.linspace(0.40, 0.80, 9, dtype=np.float32)
+
+        mu_grid = np.asarray(mu_grid, dtype=np.float32)
+        if np.any(np.diff(mu_grid) <= 0.0):
+            raise ValueError("mu_grid must be strictly increasing.")
+
+        rows = []
+        valid_mu = []
+        failures = []
+        for mu in mu_grid:
+            try:
+                sol = self.find_drift_equilibrium(vx_d=vx_d, mu_d=float(mu), verbose=verbose)
+            except RuntimeError as exc:
+                failures.append((float(mu), str(exc)))
+                continue
+
+            beta_d = float(sol.x[0])
+            valid_mu.append(float(mu))
+            rows.append([
+                0.0,                         # ey
+                -beta_d,                     # epsi
+                float(vx_d),                 # vx
+                float(vx_d) * np.tan(beta_d),# vy
+                beta_d,                      # beta
+                float(sol.x[1]),             # r
+                float(sol.x[2]),             # delta
+                float(sol.x[3]),             # Fx
+            ])
+
+        if len(rows) < 2:
+            msg = "Need at least two feasible drift equilibria for interpolation."
+            if failures:
+                msg += " Failed mu values: " + ", ".join(f"{mu:.3f}" for mu, _ in failures)
+            raise RuntimeError(msg)
+
+        if verbose >= 1 and failures:
+            print(
+                "Skipped infeasible drift-equilibrium mu values: "
+                + ", ".join(f"{mu:.3f}" for mu, _ in failures)
+            )
+
+        mu_grid = np.asarray(valid_mu, dtype=np.float32)
+        table = np.asarray(rows, dtype=np.float32)
+        self.mu_grid = mu_grid
+        self.mu_target_min = float(mu_grid[0])
+        self.mu_target_max = float(mu_grid[-1])
+        self.drift_equilibrium_table = {
+            "mu": mu_grid,
+            "ey": table[:, 0],
+            "epsi": table[:, 1],
+            "vx": table[:, 2],
+            "vy": table[:, 3],
+            "beta": table[:, 4],
+            "r": table[:, 5],
+            "delta": table[:, 6],
+            "Fx": table[:, 7],
+        }
+
+        self.vx_d = float(vx_d)
+        self.mu_d = float(nominal_mu)
+        nominal = self.get_drift_target(self.mu_d)
+
+        # Nominal attributes are kept for plotting scripts and backward
+        # compatibility; target checks use get_drift_target(mu).
+        self.ey_d = float(nominal["ey"])
+        self.epsi_d = float(nominal["epsi"])
+        self.vy_d = float(nominal["vy"])
+        self.beta_d = float(nominal["beta"])
+        self.r_d = float(nominal["r"])
+        self.delta_d = float(nominal["delta"])
+        self.Fx_d = float(nominal["Fx"])
+
+        Xd = np.array([
+            0.85,
+            self.ey_d,
+            self.epsi_d,
+            self.vx_d,
+            self.vy_d,
+            self.r_d,
+            self.delta_d,
+            self.mu_d,
+        ], dtype=np.float32)
+        Ud = np.array([0.0, self.Fx_d], dtype=np.float32)
+        self.drift_equilibrium_solution = (Xd, Ud)
+        fd, _ = self.drift_and_diffusion(Xd, Ud)
+        self.drift_equilibrium_residual = fd.copy()
+
+    def get_drift_target(self, mu):
+        """Return drift target fields interpolated at the given friction coefficient."""
+        mu_arr = np.asarray(mu, dtype=np.float32)
+        single = (mu_arr.ndim == 0)
+        mu_flat = mu_arr.reshape(-1)
+        mu_eval = np.clip(mu_flat, self.mu_grid[0], self.mu_grid[-1])
+
+        target = {}
+        for key in ["ey", "epsi", "vx", "vy", "beta", "r", "delta", "Fx"]:
+            vals = self.drift_equilibrium_table[key]
+            interp = np.interp(mu_eval, self.mu_grid, vals).astype(np.float32)
+            target[key] = float(interp[0]) if single else interp.reshape(mu_arr.shape)
+        return target
+
 
     ################################################
     # Methods for RL training
     ################################################
+    def _parse_reset_mixture_probs(self, value):
+        probs = np.asarray([float(v) for v in value.replace(" ", ",").split(",") if v], dtype=np.float64)
+        if probs.shape != (3,):
+            raise ValueError(
+                "DRIFT_RESET_MIXTURE_PROBS must contain three values: "
+                "beta_r,ey_epsi,full."
+            )
+        if np.any(probs < 0.0) or probs.sum() <= 0.0:
+            raise ValueError("DRIFT_RESET_MIXTURE_PROBS must be nonnegative with positive sum.")
+        return probs / probs.sum()
+
+    def _sample_reset_component(self, center, low, high, scale):
+        """Sample from a range contracted toward center by reset_scale."""
+        scale = max(float(scale), 0.0)
+        lo = center + min(scale, 1.0) * (low - center)
+        hi = center + min(scale, 1.0) * (high - center)
+        return np.random.uniform(lo, hi)
+
     def reset(self):
-        """Sample an initial state near, but not exactly at, the drift-like target."""
+        """Sample an initial state on a beta-r / ey-epsi box around the drift target."""
         T = self.Tmax #np.random.uniform(0.2, self.Tmax)
 
-        # ey = np.random.uniform(-1.0, 1.0)
-        # epsi = self.epsi_d + np.random.uniform(-0.35, 0.35)
-        # vx = np.random.uniform(6.0, 10.0)
-        # beta0 = self.beta_d + np.random.uniform(-0.35, 0.35)
-        # vy = vx * np.tan(beta0)
-        # r = self.r_d + np.random.uniform(-0.9, 0.9)
-        # delta = self.delta_d + np.random.uniform(-0.25, 0.25)
-        # mu = np.clip(self.mu_d + np.random.uniform(-0.15, 0.15), self.mu_min, self.mu_max)
+        mu = np.random.uniform(self.mu_target_min, self.mu_target_max)
+        target = self.get_drift_target(mu)
 
-        ey = np.random.uniform(-0.8, 0.8)
-        epsi = self.epsi_d + np.random.uniform(-0.01, 0.01)
-        vx = np.random.uniform(7.9, 8.1)
-        beta0 = self.beta_d + np.random.uniform(-0.2, 0.2)
+        scale = self.reset_scale
+        if self.reset_mode == "full":
+            reset_plane = "full"
+        elif self.reset_mode == "mixture":
+            reset_plane = np.random.choice(
+                ["beta_r", "ey_epsi", "full"],
+                p=self.reset_mixture_probs,
+            )
+        else:
+            raise ValueError("DRIFT_RESET_MODE must be either 'full' or 'mixture'.")
+
+        if reset_plane in ("ey_epsi", "full"):
+            ey = self._sample_reset_component(
+                target["ey"], -self.ey_max, self.ey_max, scale
+            )
+            epsi = self._sample_reset_component(
+                target["epsi"], self.reset_epsi_min, self.reset_epsi_max, scale
+            )
+        else:
+            ey = target["ey"]
+            epsi = target["epsi"]
+
+        if reset_plane in ("beta_r", "full"):
+            beta0 = self._sample_reset_component(
+                target["beta"], -self.beta_max, self.beta_max, scale
+            )
+            r = self._sample_reset_component(
+                target["r"], -self.r_max, self.r_max, scale
+            )
+        else:
+            beta0 = target["beta"]
+            r = target["r"]
+
+        vx = target["vx"]
         vy = vx * np.tan(beta0)
-        r = self.r_d + np.random.uniform(-0.2, 0.2)
-        delta = self.delta_d + np.random.uniform(-0.01, 0.01)
-        mu = np.clip(self.mu_d + np.random.uniform(-0.001, 0.001), self.mu_min, self.mu_max)
+        delta = target["delta"]
         
         self.state = np.array([T, ey, epsi, vx, vy, r, delta, mu], dtype=np.float32)
         return self.scale_state(self.state)
@@ -645,7 +809,7 @@ class Env(object):
             -8.0,
             -self.r_max,
             -self.delta_max,
-            0.35,
+            self.mu_target_min,
         ]
         ub_pde = [
             self.Tmax,
@@ -655,7 +819,7 @@ class Env(object):
             8.0,
             self.r_max,
             self.delta_max,
-            0.85,
+            self.mu_target_max,
         ]
         X_pde = lhs_box(self.state_dim, nPDE, lb_pde, ub_pde)
 
@@ -665,14 +829,15 @@ class Env(object):
         # for all remaining times T in [0, Tmax].
         # ------------------------------------------------------------
         T = np.random.uniform(0.0, self.Tmax, size=nTarget)
-        ey = np.random.uniform(-self.ey_tol, self.ey_tol, size=nTarget)
-        epsi = np.random.uniform(self.epsi_d - self.epsi_tol, self.epsi_d + self.epsi_tol, size=nTarget)
-        vx = np.random.uniform(self.vx_d - self.vx_tol, self.vx_d + self.vx_tol, size=nTarget)
-        beta = np.random.uniform(self.beta_d - self.beta_tol, self.beta_d + self.beta_tol, size=nTarget)
+        mu = np.random.uniform(self.mu_target_min, self.mu_target_max, size=nTarget)
+        target = self.get_drift_target(mu)
+        ey = target["ey"] + np.random.uniform(-self.ey_tol, self.ey_tol, size=nTarget)
+        epsi = target["epsi"] + np.random.uniform(-self.epsi_tol, self.epsi_tol, size=nTarget)
+        vx = target["vx"] + np.random.uniform(-self.vx_tol, self.vx_tol, size=nTarget)
+        beta = target["beta"] + np.random.uniform(-self.beta_tol, self.beta_tol, size=nTarget)
         vy = vx * np.tan(beta)
-        r = np.random.uniform(self.r_d - self.r_tol, self.r_d + self.r_tol, size=nTarget)
-        delta = np.random.uniform(self.delta_d - self.delta_tol, self.delta_d + self.delta_tol, size=nTarget)
-        mu = np.random.uniform(max(self.mu_min, self.mu_d - 0.15), min(self.mu_max, self.mu_d + 0.15), size=nTarget)
+        r = target["r"] + np.random.uniform(-self.r_tol, self.r_tol, size=nTarget)
+        delta = target["delta"] + np.random.uniform(-self.delta_tol, self.delta_tol, size=nTarget)
         X_tgt = np.column_stack([T, ey, epsi, vx, vy, r, delta, mu]).astype(np.float32)
 
         # ------------------------------------------------------------
@@ -729,6 +894,89 @@ class Env(object):
         diag = True
         return f_scaled, sigma_scaled, diag
 
+    def _fiala_lateral_force_torch(self, alpha, C_alpha, Fz, mu, n):
+        import torch
+
+        D = torch.clamp(n * mu * Fz, min=1.0e-9)
+        z = torch.tan(alpha)
+        z_sl = 3.0 * D / C_alpha
+
+        Fy_unsat = (
+            C_alpha * z
+            - (C_alpha ** 2) / (3.0 * D) * torch.abs(z) * z
+            + (C_alpha ** 3) / (27.0 * D ** 2) * z ** 3
+        )
+        Fy_sat = D * torch.sign(alpha)
+        return torch.where(torch.abs(z) < z_sl, Fy_unsat, Fy_sat)
+
+    def evaluate_physics_model_torch(self, X_pde, U_pde):
+        """
+        Torch version of evaluate_physics_model.
+
+        X_pde and U_pde are scaled tensors. Returned tensors stay on the
+        input device, avoiding GPU/CPU round trips in the HJB update.
+        """
+        import torch
+
+        X_center = torch.as_tensor(self.X_center, dtype=X_pde.dtype, device=X_pde.device)
+        X_scale = torch.as_tensor(self.X_scale, dtype=X_pde.dtype, device=X_pde.device)
+        U_center = torch.as_tensor(self.U_center, dtype=U_pde.dtype, device=U_pde.device)
+        U_scale = torch.as_tensor(self.U_scale, dtype=U_pde.dtype, device=U_pde.device)
+
+        X = X_center + X_scale * X_pde
+        U = U_center + U_scale * U_pde
+
+        delta_dot = torch.clamp(U[:, 0], -self.delta_dot_max, self.delta_dot_max)
+        Fx = torch.clamp(U[:, 1], self.Fx_min, self.Fx_max)
+
+        ey = X[:, 1]
+        epsi = X[:, 2]
+        vx = torch.clamp(X[:, 3], min=1.0e-3)
+        vy = X[:, 4]
+        r = X[:, 5]
+        delta = X[:, 6]
+        mu = torch.clamp(X[:, 7], self.mu_min, self.mu_max)
+
+        alpha_f = delta - torch.atan2(vy + self.lf * r, vx)
+        alpha_r = -torch.atan2(vy - self.lr * r, vx)
+
+        Fzf = self.m * self.g * self.lr / (self.lf + self.lr)
+        Fzr = self.m * self.g * self.lf / (self.lf + self.lr)
+
+        eps = 1.0e-9
+        Fx_bound = 0.999 * mu * Fzr
+        Fx = torch.clamp(Fx, -Fx_bound, Fx_bound)
+        nF = torch.ones_like(mu)
+        nR = torch.sqrt(torch.clamp((mu * Fzr) ** 2 - Fx ** 2, min=0.0)) / (mu * Fzr + eps)
+
+        Fyf = self._fiala_lateral_force_torch(alpha_f, self.Cf, Fzf, mu, nF)
+        Fyr = self._fiala_lateral_force_torch(alpha_r, self.Cr, Fzr, mu, nR)
+
+        f = torch.zeros_like(X)
+        f[:, 0] = -1.0
+
+        denom = torch.clamp(1.0 - self.kappa_ref * ey, min=0.2)
+        s_dot = (vx * torch.cos(epsi) - vy * torch.sin(epsi)) / denom
+        f[:, 1] = vx * torch.sin(epsi) + vy * torch.cos(epsi)
+        f[:, 2] = r - self.kappa_ref * s_dot
+        f[:, 3] = (Fx - Fyf * torch.sin(delta)) / self.m + vy * r
+        f[:, 4] = (Fyr + Fyf * torch.cos(delta)) / self.m - vx * r
+        f[:, 5] = (self.lf * Fyf * torch.cos(delta) - self.lr * Fyr) / self.Iz
+        f[:, 6] = delta_dot
+        f[:, 7] = 0.0
+
+        sigma = torch.zeros_like(X)
+        sigma[:, 0] = self.sigma_T
+        sigma[:, 1] = self.sigma_ey
+        sigma[:, 2] = self.sigma_epsi
+        sigma[:, 3] = self.sigma_vx
+        sigma[:, 4] = self.sigma_vy
+        sigma[:, 5] = self.sigma_r
+        sigma[:, 6] = self.sigma_delta
+        sigma[:, 7] = self.sigma_mu
+
+        return f / X_scale, sigma / X_scale, True
+
 
     ################################################
     # Evaluation states for visualization
@@ -738,22 +986,25 @@ class Env(object):
         Create evaluation grid for plotting learned values.
 
         plane="beta_r":
-            x-axis beta, y-axis r, with ey=epsi=0, vx=vx_d, delta=delta_d.
+            x-axis beta, y-axis r, with other variables set to the
+            interpolated drift target at the requested mu.
 
         plane="ey_epsi":
-            x-axis ey, y-axis epsi, with vx=vx_d, beta=beta_d, r=r_d.
+            x-axis ey, y-axis epsi, with other variables set to the
+            interpolated drift target at the requested mu.
         """
+        target = self.get_drift_target(mu)
         if plane == "beta_r":
             beta_grid = np.linspace(-self.beta_max, self.beta_max, num=num_grid)
             r_grid = np.linspace(-self.r_max, self.r_max, num=num_grid)
             BETA, R = np.meshgrid(beta_grid, r_grid, indexing="ij")
 
             Ts = np.full_like(BETA, T)
-            EY = np.zeros_like(BETA)
-            EPSI = np.full_like(BETA, self.epsi_d)
-            VX = np.full_like(BETA, self.vx_d)
+            EY = np.full_like(BETA, target["ey"])
+            EPSI = np.full_like(BETA, target["epsi"])
+            VX = np.full_like(BETA, target["vx"])
             VY = VX * np.tan(BETA)
-            DELTA = np.full_like(BETA, self.delta_d)
+            DELTA = np.full_like(BETA, target["delta"])
             MU = np.full_like(BETA, mu)
 
             state = np.stack([Ts, EY, EPSI, VX, VY, R, DELTA, MU], axis=-1).reshape(-1, self.state_dim)
@@ -762,14 +1013,14 @@ class Env(object):
 
         elif plane == "ey_epsi":
             ey_grid = np.linspace(-self.ey_max, self.ey_max, num=num_grid)
-            epsi_grid = np.linspace(-self.epsi_max, self.epsi_max, num=num_grid)
+            epsi_grid = np.linspace(self.reset_epsi_min, self.reset_epsi_max, num=num_grid)
             EY, EPSI = np.meshgrid(ey_grid, epsi_grid, indexing="ij")
 
             Ts = np.full_like(EY, T)
-            VX = np.full_like(EY, self.vx_d)
-            VY = VX * np.tan(self.beta_d)
-            R = np.full_like(EY, self.r_d)
-            DELTA = np.full_like(EY, self.delta_d)
+            VX = np.full_like(EY, target["vx"])
+            VY = VX * np.tan(target["beta"])
+            R = np.full_like(EY, target["r"])
+            DELTA = np.full_like(EY, target["delta"])
             MU = np.full_like(EY, mu)
 
             state = np.stack([Ts, EY, EPSI, VX, VY, R, DELTA, MU], axis=-1).reshape(-1, self.state_dim)

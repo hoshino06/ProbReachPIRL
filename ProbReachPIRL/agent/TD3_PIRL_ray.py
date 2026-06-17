@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import ray
+import os
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -228,6 +229,7 @@ class AgentConfig:
     replay_memory_size: int = 5_000
     learn_policy_noise: float = 0.2  #0.2 
     learn_noise_clip: float   = 0.5    
+    hjb_laplacian_mode: str = "loop"
 
 class PIRLAgent:
     def __init__(self, config:AgentConfig, device:str="auto", learner=True):
@@ -353,6 +355,20 @@ class PIRLAgent:
             "critic_optimizer": self.critic_optimizer.state_dict(),
         }
 
+    def get_checkpoint_cpu(self):
+        def to_cpu(obj):
+            if torch.is_tensor(obj):
+                return obj.detach().cpu().clone()
+            if isinstance(obj, dict):
+                return {k: to_cpu(v) for k, v in obj.items()}
+            if isinstance(obj, list):
+                return [to_cpu(v) for v in obj]
+            if isinstance(obj, tuple):
+                return tuple(to_cpu(v) for v in obj)
+            return obj
+
+        return to_cpu(self.get_checkpoint())
+
     def save(self, path: str):
         torch.save(self.get_checkpoint(), path)
     
@@ -446,14 +462,24 @@ class PIRLAgent:
                 raise ValueError("For diag=True, sigma must have shape (Ns, Xdim).")
 
             # Calculate diagnal terms of Laplacian
-            laplace_diag_1 = torch.stack([
-                torch.autograd.grad(dV_dx_1[:, i].sum(), X_pde, retain_graph=True)[0][:, i]
-                for i in range(X_pde.size(1))
-            ], dim=1)   # (Ns, Xdim)            
-            laplace_diag_2 = torch.stack([
-                torch.autograd.grad(dV_dx_2[:, i].sum(), X_pde, retain_graph=True)[0][:, i]
-                for i in range(X_pde.size(1))
-            ], dim=1)   # (Ns, Xdim)
+            laplace_mode = getattr(self.config, "hjb_laplacian_mode", "loop")
+            if laplace_mode == "loop":
+                laplace_diag_1 = torch.stack([
+                    torch.autograd.grad(dV_dx_1[:, i].sum(), X_pde, retain_graph=True)[0][:, i]
+                    for i in range(X_pde.size(1))
+                ], dim=1)   # (Ns, Xdim)
+                laplace_diag_2 = torch.stack([
+                    torch.autograd.grad(dV_dx_2[:, i].sum(), X_pde, retain_graph=True)[0][:, i]
+                    for i in range(X_pde.size(1))
+                ], dim=1)   # (Ns, Xdim)
+            elif laplace_mode == "batched":
+                laplace_diag_1 = self._calculate_laplace_diag_batched(dV_dx_1, X_pde)
+                laplace_diag_2 = self._calculate_laplace_diag_batched(dV_dx_2, X_pde)
+            else:
+                raise ValueError(
+                    "Unsupported hjb_laplacian_mode: "
+                    f"{laplace_mode!r}. Use 'loop' or 'batched'."
+                )
             
             # Diffusion term
             diff1 = ((sigma ** 2) * laplace_diag_1).sum(dim=1, keepdim=True)  # (Ns,1)
@@ -483,6 +509,21 @@ class PIRLAgent:
         pde_loss =  (residual_1 ** 2).mean() + (residual_2 ** 2).mean()
 
         return pde_loss
+
+    def _calculate_laplace_diag_batched(self, dV_dx, X):
+        """Calculate per-sample Hessian diagonal using batched VJP."""
+        n, d = X.shape
+        eye = torch.eye(d, dtype=X.dtype, device=X.device)
+        grad_outputs = eye[:, None, :].expand(d, n, d)
+        hess_rows = torch.autograd.grad(
+            dV_dx,
+            X,
+            grad_outputs=grad_outputs,
+            create_graph=True,
+            retain_graph=True,
+            is_grads_batched=True,
+        )[0]
+        return hess_rows.diagonal(dim1=0, dim2=2)
 
     def calculate_boundary_loss(self, X_tgt, X_avoid):
 
@@ -616,10 +657,29 @@ class RolloutWorker:
 
 @ray.remote
 class Learner:
-    def __init__(self, env_cls, agent_config, device="cuda"):
+    def __init__(self, env_cls, agent_config, device="cuda", verbose=0):
         self.env = env_cls()
         self.agent = PIRLAgent(agent_config, device=device)
         self.policy_update_cnt = 0
+        if verbose >= 1:
+            print(
+                "Learner device:",
+                self.agent.device,
+                "cuda_available:",
+                torch.cuda.is_available(),
+                "CUDA_VISIBLE_DEVICES:",
+                os.environ.get("CUDA_VISIBLE_DEVICES"),
+            )
+
+    def load_checkpoint_state(self, checkpoint, strict=True):
+        self.agent.itr = checkpoint.get("itr", 0)
+        self.agent.actor.load_state_dict(checkpoint["actor"], strict=strict)
+        self.agent.critic.load_state_dict(checkpoint["critic"], strict=strict)
+        self.agent.actor_target.load_state_dict(checkpoint["actor_target"], strict=strict)
+        self.agent.critic_target.load_state_dict(checkpoint["critic_target"], strict=strict)
+        self.agent.actor_optimizer.load_state_dict(checkpoint["actor_optimizer"])
+        self.agent.critic_optimizer.load_state_dict(checkpoint["critic_optimizer"])
+        return self.agent.itr
 
     def add_memory(self, transitions):
         self.agent.add_batch_to_replay_memory(transitions)
@@ -663,8 +723,14 @@ class Learner:
             nTarget=nTarget,
             nAvoid=nAvoid,
         )
-        U_pde = self.agent.get_action_with_learn_policy_noise(X_pde)
-        f, sigma, diag = self.env.evaluate_physics_model(X_pde, U_pde)
+        X_pde_tensor = torch.as_tensor(X_pde, dtype=torch.float32, device=self.agent.device)
+        U_pde = self.agent.get_action_with_learn_policy_noise(X_pde_tensor)
+        if hasattr(self.env, "evaluate_physics_model_torch"):
+            with torch.no_grad():
+                f, sigma, diag = self.env.evaluate_physics_model_torch(X_pde_tensor, U_pde)
+        else:
+            U_pde_phys = U_pde.detach().cpu().numpy() if torch.is_tensor(U_pde) else U_pde
+            f, sigma, diag = self.env.evaluate_physics_model(X_pde, U_pde_phys)
 
         # Update critic
         loss = self.agent.update_critic(
@@ -672,7 +738,7 @@ class Learner:
             weight_hjb=weight_hjb,
             weight_bdr=weight_bdr,
             replay_samples=replay_samples,
-            pde_samples= (X_pde, U_pde),
+            pde_samples= (X_pde_tensor, U_pde),
             f=f,
             sigma=sigma,
             diag=diag,
@@ -700,9 +766,15 @@ class Learner:
             nTarget=nTarget,
             nAvoid=nAvoid,
         )
-        U_pde = self.agent.get_action_with_learn_policy_noise(X_pde)
-        f, sigma, diag = self.env.evaluate_physics_model(X_pde, U_pde)
-        hjb_loss = self.agent.calculate_HJB_loss((X_pde,U_pde), f, sigma, diag) 
+        X_pde_tensor = torch.as_tensor(X_pde, dtype=torch.float32, device=self.agent.device)
+        U_pde = self.agent.get_action_with_learn_policy_noise(X_pde_tensor)
+        if hasattr(self.env, "evaluate_physics_model_torch"):
+            with torch.no_grad():
+                f, sigma, diag = self.env.evaluate_physics_model_torch(X_pde_tensor, U_pde)
+        else:
+            U_pde_phys = U_pde.detach().cpu().numpy() if torch.is_tensor(U_pde) else U_pde
+            f, sigma, diag = self.env.evaluate_physics_model(X_pde, U_pde_phys)
+        hjb_loss = self.agent.calculate_HJB_loss((X_pde_tensor, U_pde), f, sigma, diag) 
         bdr_loss = self.agent.calculate_boundary_loss(X_tgt, X_avoid)     
         
         return (
@@ -737,13 +809,17 @@ def train_distributed(
     checkpoint_freq = 1000,
     verbose = 1,
     device  = 'auto',
+    learner_num_gpus = None,
+    log_tag = None,
     # ---- weight config ----    
     loss_weights=(1.0, 0.0, 0.0),
     weight_schedule=None,
+    weight_schedule_time_base="global",
     # ---- PINN config ----
     num_collocations: tuple[int, int, int] = (64, 32, 32), #(nPDE, nTGT, nAVOID)
     # ---- RL config ----
     initial_exploration_num=100,
+    initial_exploration_policy="random",
     exploration_noise=0.1,
     minibatch_size=128,
     policy_update_freq=2,
@@ -754,7 +830,11 @@ def train_distributed(
     # Prepare log writer 
     ######################################
     if log_dir:
-        summary_dir    = log_dir+'/'+datetime.now().strftime('%m%d_%H%M')+f'_seed_{seed}'
+        run_name = datetime.now().strftime('%m%d_%H%M')
+        if log_tag:
+            run_name += f'_{log_tag}'
+        run_name += f'_seed_{seed}'
+        summary_dir = log_dir + '/' + run_name
         summary_writer = SummaryWriter(log_dir=summary_dir)
         if verbose >= 1:
             print(f'Progress recorded in {summary_dir}')
@@ -770,7 +850,11 @@ def train_distributed(
                                         exploration_noise=exploration_noise)
                    for i in range(num_workers)
                    ]
-        learner = Learner.remote(env_cls, agent.config, device=device)
+        learner_cls = Learner
+        if learner_num_gpus is not None:
+            learner_cls = Learner.options(num_gpus=learner_num_gpus)
+        learner = learner_cls.remote(env_cls, agent.config, device=device, verbose=verbose)
+        ray.get(learner.load_checkpoint_state.remote(agent.get_checkpoint_cpu()))
         actor_weights, critic_weights = ray.get(learner.get_network_weights.remote())
         actor_weights_ref = ray.put(actor_weights)
         critic_weights_ref = ray.put(critic_weights)
@@ -782,14 +866,35 @@ def train_distributed(
         ######################################
         # Initial exploration
         ######################################
-        worker_tasks = [worker.rollout.remote(random_action=True) for worker in workers]
+        if initial_exploration_policy not in ("random", "policy"):
+            raise ValueError(
+                "initial_exploration_policy must be 'random' or 'policy', "
+                f"got {initial_exploration_policy!r}."
+            )
+        use_random_initial = initial_exploration_policy == "random"
+        initial_actor_ref = None if use_random_initial else actor_weights_ref
+        initial_critic_ref = None if use_random_initial else critic_weights_ref
+        worker_tasks = [
+            worker.rollout.remote(
+                initial_actor_ref,
+                initial_critic_ref,
+                random_action=use_random_initial,
+            )
+            for worker in workers
+        ]
         buffer_size = 0
     
         while buffer_size < initial_exploration_num:
             finished, worker_tasks = ray.wait(worker_tasks, num_returns=1)
             worker_id, transitions, logs = ray.get(finished[0])
             buffer_size = ray.get( learner.add_memory.remote(transitions) )
-            worker_tasks.append(workers[worker_id].rollout.remote(random_action=True))
+            worker_tasks.append(
+                workers[worker_id].rollout.remote(
+                    initial_actor_ref,
+                    initial_critic_ref,
+                    random_action=use_random_initial,
+                )
+            )
         
         ##########################################
         # Start async learner process
@@ -864,13 +969,22 @@ def train_distributed(
                 ###############################
                 # Update Loss Weights
                 ###############################
-                if weight_schedule is not None:                    
+                if weight_schedule is not None:
+                    if weight_schedule_time_base == "global":
+                        schedule_count = update_count
+                    elif weight_schedule_time_base == "local":
+                        schedule_count = update_count - start
+                    else:
+                        raise ValueError(
+                            "weight_schedule_time_base must be 'global' or 'local', "
+                            f"got {weight_schedule_time_base!r}."
+                        )
                     center    = weight_schedule["center"]
                     sharpness = weight_schedule["sharpness"]
                     w_start   = np.asarray(weight_schedule["initial"], dtype=float)
                     w_end     = np.asarray(weight_schedule["final"],   dtype=float)
 
-                    sigm = 1.0 / (1.0 + np.exp(-sharpness * (update_count - center)))
+                    sigm = 1.0 / (1.0 + np.exp(-sharpness * (schedule_count - center)))
                     if sigm < 0.01:
                         sigm = 0.0
                     elif sigm > 0.99:
