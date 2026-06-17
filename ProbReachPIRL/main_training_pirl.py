@@ -71,6 +71,8 @@ parser.add_argument("--exploration_noise", default=None, type=float,
                     help="Override rollout exploration noise.")
 parser.add_argument("--policy_update_freq", default=None, type=int,
                     help="Override delayed policy update frequency.")
+parser.add_argument("--initial_exploration_num", default=None, type=int,
+                    help="Override initial replay buffer fill size.")
 args = parser.parse_args()
 
 
@@ -232,6 +234,8 @@ def main():
         case_cfg.exploration_noise = args.exploration_noise
     if args.policy_update_freq is not None:
         case_cfg.policy_update_freq = args.policy_update_freq
+    if args.initial_exploration_num is not None:
+        case_cfg.initial_exploration_num = args.initial_exploration_num
     env_cls = make_env_cls(args.case)
     env = make_env(args.case)
     
@@ -273,6 +277,7 @@ def main():
     print(f"Replay memory size: {case_cfg.replay_memory_size}")
     print(f"Exploration noise: {case_cfg.exploration_noise}")
     print(f"Policy update freq: {case_cfg.policy_update_freq}")
+    print(f"Initial exploration num: {case_cfg.initial_exploration_num}")
     print(f"Initial exploration: {args.initial_exploration_policy}")
     if weight_schedule is not None:
         print(f"Schedule: center={weight_schedule['center']}, sharpness={weight_schedule['sharpness']}, final={weight_schedule['final']}")
