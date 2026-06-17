@@ -65,6 +65,12 @@ parser.add_argument("--schedule_time_base", default="global", choices=("global",
                     help="Use absolute update count or fine-tune-local count for weight scheduling.")
 parser.add_argument("--log_dir_override", default=None,
                     help="Override CaseConfig.log_dir for this run.")
+parser.add_argument("--replay_memory_size", default=None, type=int,
+                    help="Override replay memory size.")
+parser.add_argument("--exploration_noise", default=None, type=float,
+                    help="Override rollout exploration noise.")
+parser.add_argument("--policy_update_freq", default=None, type=int,
+                    help="Override delayed policy update frequency.")
 args = parser.parse_args()
 
 
@@ -220,6 +226,12 @@ def main():
     case_cfg = CASE_CONFIGS[args.case]
     if args.log_dir_override is not None:
         case_cfg.log_dir = args.log_dir_override
+    if args.replay_memory_size is not None:
+        case_cfg.replay_memory_size = args.replay_memory_size
+    if args.exploration_noise is not None:
+        case_cfg.exploration_noise = args.exploration_noise
+    if args.policy_update_freq is not None:
+        case_cfg.policy_update_freq = args.policy_update_freq
     env_cls = make_env_cls(args.case)
     env = make_env(args.case)
     
@@ -258,6 +270,8 @@ def main():
     if args.drift_reset_mode == "mixture":
         print(f"Reset mixture probs: {args.drift_reset_mixture_probs}")
     print(f"Drift dt: {env.dt if args.case == 'drift' else '-'}")
+    print(f"Replay memory size: {case_cfg.replay_memory_size}")
+    print(f"Exploration noise: {case_cfg.exploration_noise}")
     print(f"Policy update freq: {case_cfg.policy_update_freq}")
     print(f"Initial exploration: {args.initial_exploration_policy}")
     if weight_schedule is not None:

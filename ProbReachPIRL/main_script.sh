@@ -26,6 +26,9 @@ DRIFT_RESET_MODE=${DRIFT_RESET_MODE:-full}
 DRIFT_RESET_MIXTURE_PROBS=${DRIFT_RESET_MIXTURE_PROBS:-0.45,0.45,0.10}
 DRIFT_DT=${DRIFT_DT:-}
 INITIAL_EXPLORATION_POLICY=${INITIAL_EXPLORATION_POLICY:-random}
+REPLAY_MEMORY_SIZE=${REPLAY_MEMORY_SIZE:-}
+EXPLORATION_NOISE=${EXPLORATION_NOISE:-}
+POLICY_UPDATE_FREQ=${POLICY_UPDATE_FREQ:-}
 SEEDS=(${SEEDS:-1 2})
 
 
@@ -56,6 +59,18 @@ for SEED in "${SEEDS[@]}"; do
 
   if [[ -n "${DRIFT_DT}" ]]; then
     CMD+=(--drift_dt "${DRIFT_DT}")
+  fi
+
+  if [[ -n "${REPLAY_MEMORY_SIZE}" ]]; then
+    CMD+=(--replay_memory_size "${REPLAY_MEMORY_SIZE}")
+  fi
+
+  if [[ -n "${EXPLORATION_NOISE}" ]]; then
+    CMD+=(--exploration_noise "${EXPLORATION_NOISE}")
+  fi
+
+  if [[ -n "${POLICY_UPDATE_FREQ}" ]]; then
+    CMD+=(--policy_update_freq "${POLICY_UPDATE_FREQ}")
   fi
 
   if [[ -n "${LOG_DIR_OVERRIDE}" ]]; then

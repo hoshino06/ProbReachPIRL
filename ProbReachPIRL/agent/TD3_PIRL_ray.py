@@ -7,6 +7,7 @@ import torch.nn.functional as F
 from torch.utils.tensorboard import SummaryWriter
 import numpy as np
 import copy
+import time
 from tqdm import tqdm
 from datetime import datetime
 from dataclasses import dataclass, asdict
@@ -836,6 +837,26 @@ def train_distributed(
         run_name += f'_seed_{seed}'
         summary_dir = log_dir + '/' + run_name
         summary_writer = SummaryWriter(log_dir=summary_dir)
+        summary_writer.add_text(
+            "Config/train",
+            "\n".join([
+                f"num_workers: {num_workers}",
+                f"learner_num_gpus: {learner_num_gpus}",
+                f"num_collocations: {num_collocations}",
+                f"initial_exploration_num: {initial_exploration_num}",
+                f"initial_exploration_policy: {initial_exploration_policy}",
+                f"exploration_noise: {exploration_noise}",
+                f"minibatch_size: {minibatch_size}",
+                f"policy_update_freq: {policy_update_freq}",
+                f"target_update_rate: {target_update_rate}",
+                f"loss_weights: {loss_weights}",
+                f"weight_schedule: {weight_schedule}",
+                f"weight_schedule_time_base: {weight_schedule_time_base}",
+                f"hjb_laplacian_mode: {getattr(agent.config, 'hjb_laplacian_mode', 'loop')}",
+                f"replay_memory_size: {agent.config.replay_memory_size}",
+            ]),
+            0,
+        )
         if verbose >= 1:
             print(f'Progress recorded in {summary_dir}')
             print(f'---> $tensorboard --logdir {summary_dir}')        
@@ -901,6 +922,8 @@ def train_distributed(
         ##########################################
         learner_task = learner.learn_once.remote(
             minibatch_size=minibatch_size,
+            policy_update_freq=policy_update_freq,
+            target_update_rate=target_update_rate,
             loss_weights=loss_weights,
             num_collocations=num_collocations,
         )
@@ -911,6 +934,7 @@ def train_distributed(
         start, end = (agent.itr, agent.itr+num_iterations)
         pbar = tqdm(range(start+1, end+1), ascii=True, unit='updates') if verbose >= 1 else None
         update_count = start
+        train_start_time = time.perf_counter()
         
         while update_count < end:
             ######################
@@ -946,6 +970,9 @@ def train_distributed(
     
                 # Log
                 if update_count % log_freq == 0 and log_dir is not None:
+                    elapsed_seconds = time.perf_counter() - train_start_time
+                    completed_updates = max(update_count - start, 1)
+                    updates_per_second = completed_updates / max(elapsed_seconds, 1.0e-12)
                     
                     if loss["td"] == 0:
                         loss["td"] = ray.get(learner.evaluate_td_loss.remote(minibatch_size))
@@ -961,6 +988,8 @@ def train_distributed(
                     summary_writer.add_scalar("Weights/RL",  weight_td3, update_count)
                     summary_writer.add_scalar("Weights/HJB", weight_hjb, update_count)
                     summary_writer.add_scalar("Weights/BDR", weight_bdr, update_count)
+                    summary_writer.add_scalar("Train/Elapsed Seconds", elapsed_seconds, update_count)
+                    summary_writer.add_scalar("Train/Updates Per Second", updates_per_second, update_count)
                     summary_writer.flush()
     
                 if update_count % checkpoint_freq == 0 or update_count == end:     
@@ -997,6 +1026,8 @@ def train_distributed(
                 #####################################
                 learner_task = learner.learn_once.remote(
                     minibatch_size=minibatch_size,
+                    policy_update_freq=policy_update_freq,
+                    target_update_rate=target_update_rate,
                     loss_weights=(weight_td3, weight_hjb, weight_bdr),
                     num_collocations=num_collocations,
                 )
