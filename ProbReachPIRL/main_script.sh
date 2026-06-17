@@ -11,6 +11,7 @@ CHECKPOINT=${2:-${CHECKPOINT:-}}
 CASE=${CASE:-drift}
 NUM_WORKERS=${NUM_WORKERS:-2}
 NUM_UPDATES=${NUM_UPDATES:-1000000}
+TARGET_UPDATES=${TARGET_UPDATES:-}
 NUM_COLLOCATIONS=${NUM_COLLOCATIONS:-}
 LEARNER_NUM_GPUS=${LEARNER_NUM_GPUS:-}
 HJB_LAPLACIAN_MODE=${HJB_LAPLACIAN_MODE:-loop}
@@ -33,6 +34,26 @@ SEEDS=(${SEEDS:-1 2})
 
 
 for SEED in "${SEEDS[@]}"; do
+  RUN_NUM_UPDATES="${NUM_UPDATES}"
+  if [[ -n "${TARGET_UPDATES}" ]]; then
+    START_UPDATES=0
+    if [[ -n "${CHECKPOINT}" ]]; then
+      START_UPDATES=$(python - "${CHECKPOINT}" <<'PY'
+import sys
+import torch
+
+checkpoint = torch.load(sys.argv[1], map_location="cpu")
+print(int(checkpoint.get("itr", 0)))
+PY
+)
+    fi
+    RUN_NUM_UPDATES=$((TARGET_UPDATES - START_UPDATES))
+    if (( RUN_NUM_UPDATES < 0 )); then
+      echo "TARGET_UPDATES (${TARGET_UPDATES}) is smaller than checkpoint itr (${START_UPDATES})." >&2
+      exit 1
+    fi
+  fi
+
   LOG_DIR="logs/${CASE}/${METHOD}"
   mkdir -p "${LOG_DIR}"
 
@@ -42,7 +63,7 @@ for SEED in "${SEEDS[@]}"; do
     --method ${METHOD} \
     --seed ${SEED} \
     --num_workers ${NUM_WORKERS} \
-    --num_updates ${NUM_UPDATES} \
+    --num_updates ${RUN_NUM_UPDATES} \
     --hjb_laplacian_mode ${HJB_LAPLACIAN_MODE} \
     --drift_reset_scale ${DRIFT_RESET_SCALE} \
     --drift_reset_mode ${DRIFT_RESET_MODE} \
