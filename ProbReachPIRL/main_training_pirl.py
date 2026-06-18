@@ -58,6 +58,12 @@ parser.add_argument("--drift_reset_mixture_probs", default="0.45,0.45,0.10",
                     help="Comma-separated beta_r,ey_epsi,full probabilities for mixture reset.")
 parser.add_argument("--drift_dt", default=None, type=float,
                     help="Override the drifting-control environment time step.")
+parser.add_argument("--drift_reset_t_mode", default="fixed", choices=("fixed", "random"),
+                    help="Drift reset remaining-time mode.")
+parser.add_argument("--drift_reset_t_min", default=0.2, type=float,
+                    help="Minimum remaining time for random drift reset.")
+parser.add_argument("--drift_reset_t_max", default=None, type=float,
+                    help="Maximum remaining time for random drift reset. Defaults to env.Tmax.")
 parser.add_argument("--initial_exploration_policy", default="random",
                     choices=("random", "policy"),
                     help="Use random actions or the current policy to fill the initial replay buffer.")
@@ -73,6 +79,12 @@ parser.add_argument("--policy_update_freq", default=None, type=int,
                     help="Override delayed policy update frequency.")
 parser.add_argument("--initial_exploration_num", default=None, type=int,
                     help="Override initial replay buffer fill size.")
+parser.add_argument("--critic_lr", default=None, type=float,
+                    help="Override critic learning rate.")
+parser.add_argument("--actor_lr", default=None, type=float,
+                    help="Override actor learning rate.")
+parser.add_argument("--learning_rate", default=None, type=float,
+                    help="Override both actor and critic learning rates.")
 args = parser.parse_args()
 
 
@@ -214,6 +226,10 @@ def set_seed(seed):
     np.random.seed(seed)
     torch.manual_seed(seed)
 
+def set_optimizer_lr(optimizer, lr):
+    for group in optimizer.param_groups:
+        group["lr"] = lr
+
 
 def main():
 
@@ -222,6 +238,10 @@ def main():
     os.environ["DRIFT_RESET_SCALE"] = str(args.drift_reset_scale)
     os.environ["DRIFT_RESET_MODE"] = str(args.drift_reset_mode)
     os.environ["DRIFT_RESET_MIXTURE_PROBS"] = str(args.drift_reset_mixture_probs)
+    os.environ["DRIFT_RESET_T_MODE"] = str(args.drift_reset_t_mode)
+    os.environ["DRIFT_RESET_T_MIN"] = str(args.drift_reset_t_min)
+    if args.drift_reset_t_max is not None:
+        os.environ["DRIFT_RESET_T_MAX"] = str(args.drift_reset_t_max)
     if args.drift_dt is not None:
         os.environ["DRIFT_DT"] = str(args.drift_dt)
 
@@ -236,6 +256,13 @@ def main():
         case_cfg.policy_update_freq = args.policy_update_freq
     if args.initial_exploration_num is not None:
         case_cfg.initial_exploration_num = args.initial_exploration_num
+    if args.learning_rate is not None:
+        case_cfg.critic_lr = args.learning_rate
+        case_cfg.actor_lr = args.learning_rate
+    if args.critic_lr is not None:
+        case_cfg.critic_lr = args.critic_lr
+    if args.actor_lr is not None:
+        case_cfg.actor_lr = args.actor_lr
     env_cls = make_env_cls(args.case)
     env = make_env(args.case)
     
@@ -255,7 +282,12 @@ def main():
         agent = PIRLAgent(agent_config, device=args.device)
     else:
         agent = PIRLAgent.from_checkpoint(args.checkpoint)
+        agent.config.replay_memory_size = case_cfg.replay_memory_size
+        agent.config.critic_lr = case_cfg.critic_lr
+        agent.config.actor_lr = case_cfg.actor_lr
         agent.config.hjb_laplacian_mode = args.hjb_laplacian_mode
+        set_optimizer_lr(agent.critic_optimizer, case_cfg.critic_lr)
+        set_optimizer_lr(agent.actor_optimizer, case_cfg.actor_lr)
 
     loss_weights, weight_schedule = get_loss_setting(args.method, args.case)
 
@@ -273,8 +305,13 @@ def main():
     print(f"Reset mode: {args.drift_reset_mode}")
     if args.drift_reset_mode == "mixture":
         print(f"Reset mixture probs: {args.drift_reset_mixture_probs}")
+    print(f"Reset T mode: {args.drift_reset_t_mode}")
+    if args.drift_reset_t_mode == "random":
+        print(f"Reset T range: [{args.drift_reset_t_min}, {args.drift_reset_t_max if args.drift_reset_t_max is not None else env.Tmax}]")
     print(f"Drift dt: {env.dt if args.case == 'drift' else '-'}")
     print(f"Replay memory size: {case_cfg.replay_memory_size}")
+    print(f"Critic LR: {case_cfg.critic_lr}")
+    print(f"Actor LR: {case_cfg.actor_lr}")
     print(f"Exploration noise: {case_cfg.exploration_noise}")
     print(f"Policy update freq: {case_cfg.policy_update_freq}")
     print(f"Initial exploration num: {case_cfg.initial_exploration_num}")

@@ -24,12 +24,18 @@ LOG_DIR_OVERRIDE=${LOG_DIR_OVERRIDE:-}
 DRIFT_RESET_SCALE=${DRIFT_RESET_SCALE:-1.0}
 DRIFT_RESET_MODE=${DRIFT_RESET_MODE:-full}
 DRIFT_RESET_MIXTURE_PROBS=${DRIFT_RESET_MIXTURE_PROBS:-0.45,0.45,0.10}
+DRIFT_RESET_T_MODE=${DRIFT_RESET_T_MODE:-fixed}
+DRIFT_RESET_T_MIN=${DRIFT_RESET_T_MIN:-0.2}
+DRIFT_RESET_T_MAX=${DRIFT_RESET_T_MAX:-}
 DRIFT_DT=${DRIFT_DT:-}
 INITIAL_EXPLORATION_POLICY=${INITIAL_EXPLORATION_POLICY:-random}
 REPLAY_MEMORY_SIZE=${REPLAY_MEMORY_SIZE:-}
 EXPLORATION_NOISE=${EXPLORATION_NOISE:-}
 POLICY_UPDATE_FREQ=${POLICY_UPDATE_FREQ:-}
 INITIAL_EXPLORATION_NUM=${INITIAL_EXPLORATION_NUM:-}
+LEARNING_RATE=${LEARNING_RATE:-}
+CRITIC_LR=${CRITIC_LR:-}
+ACTOR_LR=${ACTOR_LR:-}
 SEEDS=(${SEEDS:-1 2})
 
 
@@ -48,6 +54,8 @@ for SEED in "${SEEDS[@]}"; do
     --drift_reset_scale ${DRIFT_RESET_SCALE} \
     --drift_reset_mode ${DRIFT_RESET_MODE} \
     --drift_reset_mixture_probs ${DRIFT_RESET_MIXTURE_PROBS} \
+    --drift_reset_t_mode ${DRIFT_RESET_T_MODE} \
+    --drift_reset_t_min ${DRIFT_RESET_T_MIN} \
     --initial_exploration_policy ${INITIAL_EXPLORATION_POLICY} \
     --schedule_time_base ${SCHEDULE_TIME_BASE} \
     --verbose 0 \
@@ -60,6 +68,10 @@ for SEED in "${SEEDS[@]}"; do
 
   if [[ -n "${DRIFT_DT}" ]]; then
     CMD+=(--drift_dt "${DRIFT_DT}")
+  fi
+
+  if [[ -n "${DRIFT_RESET_T_MAX}" ]]; then
+    CMD+=(--drift_reset_t_max "${DRIFT_RESET_T_MAX}")
   fi
 
   if [[ -n "${REPLAY_MEMORY_SIZE}" ]]; then
@@ -76,6 +88,18 @@ for SEED in "${SEEDS[@]}"; do
 
   if [[ -n "${INITIAL_EXPLORATION_NUM}" ]]; then
     CMD+=(--initial_exploration_num "${INITIAL_EXPLORATION_NUM}")
+  fi
+
+  if [[ -n "${LEARNING_RATE}" ]]; then
+    CMD+=(--learning_rate "${LEARNING_RATE}")
+  fi
+
+  if [[ -n "${CRITIC_LR}" ]]; then
+    CMD+=(--critic_lr "${CRITIC_LR}")
+  fi
+
+  if [[ -n "${ACTOR_LR}" ]]; then
+    CMD+=(--actor_lr "${ACTOR_LR}")
   fi
 
   if [[ -n "${LOG_DIR_OVERRIDE}" ]]; then

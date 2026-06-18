@@ -98,6 +98,9 @@ class Env(object):
         self.reset_mixture_probs = self._parse_reset_mixture_probs(
             os.environ.get("DRIFT_RESET_MIXTURE_PROBS", "0.45,0.45,0.10")
         )
+        self.reset_t_mode = os.environ.get("DRIFT_RESET_T_MODE", "fixed").lower()
+        self.reset_t_min = float(os.environ.get("DRIFT_RESET_T_MIN", "0.2"))
+        self.reset_t_max = float(os.environ.get("DRIFT_RESET_T_MAX", str(self.Tmax)))
         self.reset_epsi_min = -0.2
         self.reset_epsi_max = 0.8
 
@@ -685,7 +688,14 @@ class Env(object):
 
     def reset(self):
         """Sample an initial state on a beta-r / ey-epsi box around the drift target."""
-        T = self.Tmax #np.random.uniform(0.2, self.Tmax)
+        if self.reset_t_mode == "fixed":
+            T = self.Tmax
+        elif self.reset_t_mode == "random":
+            t_low = max(0.0, min(self.reset_t_min, self.Tmax))
+            t_high = max(t_low, min(self.reset_t_max, self.Tmax))
+            T = np.random.uniform(t_low, t_high)
+        else:
+            raise ValueError("DRIFT_RESET_T_MODE must be either 'fixed' or 'random'.")
 
         mu = np.random.uniform(self.mu_target_min, self.mu_target_max)
         target = self.get_drift_target(mu)
