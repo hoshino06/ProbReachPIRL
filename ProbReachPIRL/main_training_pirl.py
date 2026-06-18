@@ -56,6 +56,10 @@ parser.add_argument("--drift_reset_mode", default="full", choices=("full", "mixt
                     help="Drift reset distribution mode.")
 parser.add_argument("--drift_reset_mixture_probs", default="0.45,0.45,0.10",
                     help="Comma-separated beta_r,ey_epsi,full probabilities for mixture reset.")
+parser.add_argument("--drift_reset_t_mode", default="fixed", choices=("fixed", "random"),
+                    help="Use Tmax or a random remaining time at drift reset.")
+parser.add_argument("--drift_reset_t_min", default=0.0, type=float,
+                    help="Lower bound for random drift reset remaining time.")
 parser.add_argument("--drift_dt", default=None, type=float,
                     help="Override the drifting-control environment time step.")
 parser.add_argument("--initial_exploration_policy", default="random",
@@ -222,6 +226,8 @@ def main():
     os.environ["DRIFT_RESET_SCALE"] = str(args.drift_reset_scale)
     os.environ["DRIFT_RESET_MODE"] = str(args.drift_reset_mode)
     os.environ["DRIFT_RESET_MIXTURE_PROBS"] = str(args.drift_reset_mixture_probs)
+    os.environ["DRIFT_RESET_T_MODE"] = str(args.drift_reset_t_mode)
+    os.environ["DRIFT_RESET_T_MIN"] = str(args.drift_reset_t_min)
     if args.drift_dt is not None:
         os.environ["DRIFT_DT"] = str(args.drift_dt)
 
@@ -271,6 +277,9 @@ def main():
     print(f"HJB Lap.: {args.hjb_laplacian_mode}")
     print(f"Reset scale: {args.drift_reset_scale}")
     print(f"Reset mode: {args.drift_reset_mode}")
+    print(f"Reset T mode: {args.drift_reset_t_mode}")
+    if args.drift_reset_t_mode == "random":
+        print(f"Reset T min: {args.drift_reset_t_min}")
     if args.drift_reset_mode == "mixture":
         print(f"Reset mixture probs: {args.drift_reset_mixture_probs}")
     print(f"Drift dt: {env.dt if args.case == 'drift' else '-'}")
