@@ -940,7 +940,7 @@ def train_distributed(
             ######################
             # Worker
             ######################
-            finished_workers, worker_tasks = ray.wait(worker_tasks, num_returns=1, timeout=0.0)    
+            finished_workers, worker_tasks = ray.wait(worker_tasks, num_returns=1, timeout=0.01)    
             if finished_workers:
                 worker_id, transitions, logs = ray.get(finished_workers[0])        
                 learner.add_memory.remote(transitions)
