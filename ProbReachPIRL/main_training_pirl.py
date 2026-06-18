@@ -34,6 +34,12 @@ parser.add_argument("--num_updates", default=1_000_000, type=int,
 parser.add_argument("--num_collocations", default=None, type=int, nargs=3,
                     metavar=("NPDE", "NTARGET", "NAVOID"),
                     help="Override PINN collocation counts.")
+parser.add_argument("--pinn_sample_mode", default="uniform", choices=("uniform", "replay"),
+                    help="Sample HJB PDE points uniformly or from replay memory.")
+parser.add_argument("--pinn_replay_fraction", default=1.0, type=float,
+                    help="Fraction of HJB PDE points drawn from replay memory when pinn_sample_mode=replay.")
+parser.add_argument("--pinn_replay_jitter", default=0.0, type=float,
+                    help="Gaussian jitter in scaled state units for replay HJB PDE points.")
 parser.add_argument("--learner_num_gpus", default=None, type=float,
                     help="Ray GPU resource assigned to each Learner actor. Omit for legacy behavior.")
 parser.add_argument("--hjb_laplacian_mode", default="loop", choices=("loop", "batched"),
@@ -60,14 +66,10 @@ parser.add_argument("--drift_reset_t_mode", default="fixed", choices=("fixed", "
                     help="Use Tmax or a random remaining time at drift reset.")
 parser.add_argument("--drift_reset_t_min", default=0.0, type=float,
                     help="Lower bound for random drift reset remaining time.")
-parser.add_argument("--drift_dt", default=None, type=float,
-                    help="Override the drifting-control environment time step.")
-parser.add_argument("--drift_reset_t_mode", default="fixed", choices=("fixed", "random"),
-                    help="Drift reset remaining-time mode.")
-parser.add_argument("--drift_reset_t_min", default=0.2, type=float,
-                    help="Minimum remaining time for random drift reset.")
 parser.add_argument("--drift_reset_t_max", default=None, type=float,
                     help="Maximum remaining time for random drift reset. Defaults to env.Tmax.")
+parser.add_argument("--drift_dt", default=None, type=float,
+                    help="Override the drifting-control environment time step.")
 parser.add_argument("--initial_exploration_policy", default="random",
                     choices=("random", "policy"),
                     help="Use random actions or the current policy to fill the initial replay buffer.")
@@ -244,11 +246,8 @@ def main():
     os.environ["DRIFT_RESET_MIXTURE_PROBS"] = str(args.drift_reset_mixture_probs)
     os.environ["DRIFT_RESET_T_MODE"] = str(args.drift_reset_t_mode)
     os.environ["DRIFT_RESET_T_MIN"] = str(args.drift_reset_t_min)
-<<<<<<< HEAD
-=======
     if args.drift_reset_t_max is not None:
         os.environ["DRIFT_RESET_T_MAX"] = str(args.drift_reset_t_max)
->>>>>>> 84a830a96512b2b8792fa027d09917d7db538f46
     if args.drift_dt is not None:
         os.environ["DRIFT_DT"] = str(args.drift_dt)
 
@@ -306,16 +305,17 @@ def main():
     print(f"Log dir: {case_cfg.log_dir}")
     print(f"Updates: {args.num_updates}")
     print(f"Colloc.: {tuple(args.num_collocations) if args.num_collocations is not None else case_cfg.num_collocations}")
+    print(f"PINN sample mode: {args.pinn_sample_mode}")
+    if args.pinn_sample_mode == "replay":
+        print(f"PINN replay fraction: {args.pinn_replay_fraction}")
+        print(f"PINN replay jitter: {args.pinn_replay_jitter}")
     print(f"Learner GPUs: {args.learner_num_gpus if args.learner_num_gpus is not None else 'legacy'}")
     print(f"HJB Lap.: {args.hjb_laplacian_mode}")
     print(f"Reset scale: {args.drift_reset_scale}")
     print(f"Reset mode: {args.drift_reset_mode}")
     print(f"Reset T mode: {args.drift_reset_t_mode}")
-    if args.drift_reset_t_mode == "random":
-        print(f"Reset T min: {args.drift_reset_t_min}")
     if args.drift_reset_mode == "mixture":
         print(f"Reset mixture probs: {args.drift_reset_mixture_probs}")
-    print(f"Reset T mode: {args.drift_reset_t_mode}")
     if args.drift_reset_t_mode == "random":
         print(f"Reset T range: [{args.drift_reset_t_min}, {args.drift_reset_t_max if args.drift_reset_t_max is not None else env.Tmax}]")
     print(f"Drift dt: {env.dt if args.case == 'drift' else '-'}")
@@ -365,6 +365,9 @@ def main():
         weight_schedule=weight_schedule,
         weight_schedule_time_base=args.schedule_time_base,
         num_collocations=tuple(args.num_collocations) if args.num_collocations is not None else case_cfg.num_collocations,
+        pinn_sample_mode=args.pinn_sample_mode,
+        pinn_replay_fraction=args.pinn_replay_fraction,
+        pinn_replay_jitter=args.pinn_replay_jitter,
         initial_exploration_num=case_cfg.initial_exploration_num,
         initial_exploration_policy=args.initial_exploration_policy,
         exploration_noise=case_cfg.exploration_noise,

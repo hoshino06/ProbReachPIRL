@@ -198,6 +198,10 @@ class ReplayMemory(object):
             torch.as_tensor(self.not_done[ind], dtype=torch.float32, device=device),
         )
 
+    def sample_states(self, batch_size):
+        ind = np.random.randint(0, self.size, size=batch_size)
+        return self.state[ind].copy()
+
     def __len__(self):
         return self.size
 
@@ -672,6 +676,63 @@ class Learner:
                 os.environ.get("CUDA_VISIBLE_DEVICES"),
             )
 
+    def _sample_pinn_points(
+        self,
+        nPDE,
+        nTarget,
+        nAvoid,
+        pinn_sample_mode="uniform",
+        pinn_replay_fraction=1.0,
+        pinn_replay_jitter=0.0,
+    ):
+        if pinn_sample_mode == "uniform":
+            return self.env.sample_pinn_collocation_points(
+                nPDE=nPDE,
+                nTarget=nTarget,
+                nAvoid=nAvoid,
+            )
+
+        if pinn_sample_mode != "replay":
+            raise ValueError(
+                "pinn_sample_mode must be 'uniform' or 'replay', "
+                f"got {pinn_sample_mode!r}."
+            )
+        if len(self.agent.replay_memory) == 0:
+            return self.env.sample_pinn_collocation_points(
+                nPDE=nPDE,
+                nTarget=nTarget,
+                nAvoid=nAvoid,
+            )
+
+        replay_fraction = float(np.clip(pinn_replay_fraction, 0.0, 1.0))
+        n_replay = int(round(nPDE * replay_fraction))
+        n_uniform = nPDE - n_replay
+
+        sample_nPDE = n_uniform if n_uniform > 0 else 1
+        X_uniform, X_tgt, X_avoid = self.env.sample_pinn_collocation_points(
+            nPDE=sample_nPDE,
+            nTarget=nTarget,
+            nAvoid=nAvoid,
+        )
+
+        X_parts = []
+        if n_replay > 0:
+            X_replay = self.agent.replay_memory.sample_states(n_replay)
+            jitter = float(pinn_replay_jitter)
+            if jitter > 0.0:
+                X_replay = X_replay + np.random.normal(
+                    loc=0.0,
+                    scale=jitter,
+                    size=X_replay.shape,
+                ).astype(np.float32)
+                X_replay = np.clip(X_replay, -1.0, 1.0)
+            X_parts.append(X_replay.astype(np.float32))
+        if n_uniform > 0:
+            X_parts.append(X_uniform.astype(np.float32))
+        X_pde = np.concatenate(X_parts, axis=0) if X_parts else X_uniform[:0]
+
+        return X_pde.astype(np.float32), X_tgt, X_avoid
+
     def load_checkpoint_state(self, checkpoint, strict=True):
         self.agent.itr = checkpoint.get("itr", 0)
         self.agent.actor.load_state_dict(checkpoint["actor"], strict=strict)
@@ -710,6 +771,9 @@ class Learner:
         target_update_rate=0.005,
         loss_weights=(1.0, 0.0, 0.0),
         num_collocations=(64, 32, 32),
+        pinn_sample_mode="uniform",
+        pinn_replay_fraction=1.0,
+        pinn_replay_jitter=0.0,
     ):
 
         weight_td3, weight_hjb, weight_bdr = loss_weights
@@ -719,10 +783,13 @@ class Learner:
         replay_samples = self.agent.sample_from_replay_memory(minibatch_size)
 
         # Sample for PINN update 
-        X_pde, X_tgt, X_avoid = self.env.sample_pinn_collocation_points(
+        X_pde, X_tgt, X_avoid = self._sample_pinn_points(
             nPDE=nPDE,
             nTarget=nTarget,
             nAvoid=nAvoid,
+            pinn_sample_mode=pinn_sample_mode,
+            pinn_replay_fraction=pinn_replay_fraction,
+            pinn_replay_jitter=pinn_replay_jitter,
         )
         X_pde_tensor = torch.as_tensor(X_pde, dtype=torch.float32, device=self.agent.device)
         U_pde = self.agent.get_action_with_learn_policy_noise(X_pde_tensor)
@@ -760,12 +827,21 @@ class Learner:
 
         return loss 
 
-    def evaluate_hjb_bdr_loss(self, num_collocations=(64, 32, 32)):
+    def evaluate_hjb_bdr_loss(
+        self,
+        num_collocations=(64, 32, 32),
+        pinn_sample_mode="uniform",
+        pinn_replay_fraction=1.0,
+        pinn_replay_jitter=0.0,
+    ):
         nPDE, nTarget, nAvoid = num_collocations
-        X_pde, X_tgt, X_avoid = self.env.sample_pinn_collocation_points(
+        X_pde, X_tgt, X_avoid = self._sample_pinn_points(
             nPDE=nPDE,
             nTarget=nTarget,
             nAvoid=nAvoid,
+            pinn_sample_mode=pinn_sample_mode,
+            pinn_replay_fraction=pinn_replay_fraction,
+            pinn_replay_jitter=pinn_replay_jitter,
         )
         X_pde_tensor = torch.as_tensor(X_pde, dtype=torch.float32, device=self.agent.device)
         U_pde = self.agent.get_action_with_learn_policy_noise(X_pde_tensor)
@@ -818,6 +894,9 @@ def train_distributed(
     weight_schedule_time_base="global",
     # ---- PINN config ----
     num_collocations: tuple[int, int, int] = (64, 32, 32), #(nPDE, nTGT, nAVOID)
+    pinn_sample_mode: str = "uniform",
+    pinn_replay_fraction: float = 1.0,
+    pinn_replay_jitter: float = 0.0,
     # ---- RL config ----
     initial_exploration_num=100,
     initial_exploration_policy="random",
@@ -843,6 +922,9 @@ def train_distributed(
                 f"num_workers: {num_workers}",
                 f"learner_num_gpus: {learner_num_gpus}",
                 f"num_collocations: {num_collocations}",
+                f"pinn_sample_mode: {pinn_sample_mode}",
+                f"pinn_replay_fraction: {pinn_replay_fraction}",
+                f"pinn_replay_jitter: {pinn_replay_jitter}",
                 f"initial_exploration_num: {initial_exploration_num}",
                 f"initial_exploration_policy: {initial_exploration_policy}",
                 f"exploration_noise: {exploration_noise}",
@@ -926,6 +1008,9 @@ def train_distributed(
             target_update_rate=target_update_rate,
             loss_weights=loss_weights,
             num_collocations=num_collocations,
+            pinn_sample_mode=pinn_sample_mode,
+            pinn_replay_fraction=pinn_replay_fraction,
+            pinn_replay_jitter=pinn_replay_jitter,
         )
         
         ##########################################
@@ -978,12 +1063,27 @@ def train_distributed(
                         loss["td"] = ray.get(learner.evaluate_td_loss.remote(minibatch_size))
 
                     if loss["hjb"] == 0 or loss["bdr"] == 0:
-                        loss["hjb"], loss["bdr"] = ray.get(learner.evaluate_hjb_bdr_loss.remote(num_collocations)                        )
+                        loss["hjb"], loss["bdr"] = ray.get(
+                            learner.evaluate_hjb_bdr_loss.remote(
+                                num_collocations,
+                                pinn_sample_mode=pinn_sample_mode,
+                                pinn_replay_fraction=pinn_replay_fraction,
+                                pinn_replay_jitter=pinn_replay_jitter,
+                            )
+                        )
+
+                    hjb_uniform, _ = ray.get(
+                        learner.evaluate_hjb_bdr_loss.remote(
+                            num_collocations,
+                            pinn_sample_mode="uniform",
+                        )
+                    )
                                     
                     summary_writer.add_scalar("RL/Average Reward", np.mean(reward_window), update_count)
                     summary_writer.add_scalar("RL/Episode Q0",     np.nanmean(q0_window),  update_count)
                     summary_writer.add_scalar("Loss/RL",  loss["td"],  update_count)
                     summary_writer.add_scalar("Loss/HJB", loss["hjb"], update_count)
+                    summary_writer.add_scalar("Loss/HJB_uniform", hjb_uniform, update_count)
                     summary_writer.add_scalar("Loss/BDR", loss["bdr"], update_count)
                     summary_writer.add_scalar("Weights/RL",  weight_td3, update_count)
                     summary_writer.add_scalar("Weights/HJB", weight_hjb, update_count)
@@ -1030,6 +1130,9 @@ def train_distributed(
                     target_update_rate=target_update_rate,
                     loss_weights=(weight_td3, weight_hjb, weight_bdr),
                     num_collocations=num_collocations,
+                    pinn_sample_mode=pinn_sample_mode,
+                    pinn_replay_fraction=pinn_replay_fraction,
+                    pinn_replay_jitter=pinn_replay_jitter,
                 )
             
         if pbar is not None:
