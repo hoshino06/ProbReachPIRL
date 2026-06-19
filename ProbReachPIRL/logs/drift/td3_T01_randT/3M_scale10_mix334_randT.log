@@ -1,0 +1,47 @@
+[seed=3] started
+--------------------------------------------
+Case   : drift
+Method : td3
+Seed   : 3
+Device : auto
+Log dir: logs/drift/td3_T01_randT_scale10_mix334
+Updates: 1000000
+Colloc.: (1000, 100, 100)
+PINN sample mode: replay
+PINN replay fraction: 1.0
+PINN replay jitter: 0.0
+Learner GPUs: 0.16
+HJB Lap.: loop
+Reset scale: 1.0
+Reset mode: mixture
+Reset T mode: random
+Reset mixture probs: 0.3,0.3,0.4
+Reset T range: [0.0, 5.0]
+Drift dt: 0.1
+Replay memory size: 100000
+Critic LR: 0.0001
+Actor LR: 0.0001
+Exploration noise: 0.2
+Policy update freq: 10
+Initial exploration num: 10000
+Initial exploration: policy
+Log tag: td3_dt01_randT_scale10_mix334_from_mix334s3_2m
+--------------------------------------------
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1781829510.331634 2047748 instrument.cc:563] Metric with name 'grpc.resource_quota.calls_dropped' registered more than once. Ignoring later registration.
+E0000 00:00:1781829510.331682 2047748 instrument.cc:563] Metric with name 'grpc.resource_quota.calls_rejected' registered more than once. Ignoring later registration.
+E0000 00:00:1781829510.331687 2047748 instrument.cc:563] Metric with name 'grpc.resource_quota.connections_dropped' registered more than once. Ignoring later registration.
+E0000 00:00:1781829510.331691 2047748 instrument.cc:563] Metric with name 'grpc.resource_quota.instantaneous_memory_pressure' registered more than once. Ignoring later registration.
+E0000 00:00:1781829510.331695 2047748 instrument.cc:563] Metric with name 'grpc.resource_quota.memory_pressure_control_value' registered more than once. Ignoring later registration.
+2026-06-19 09:38:32,369	INFO worker.py:2013 -- Started a local Ray instance.
+/home/user/anaconda3/envs/pirl/lib/python3.13/site-packages/ray/_private/worker.py:2052: FutureWarning: Tip: In future versions of Ray, Ray will no longer override accelerator visible devices env var if num_gpus=0 or num_gpus=None (default). To enable this behavior and turn off this error message, set RAY_ACCEL_ENV_VAR_OVERRIDE_ON_ZERO=0
+  warnings.warn(
+[33m(raylet)[0m [2026-06-19 09:39:02,162 E 2049234 2049234] (raylet) main.cc:1047: Failed to establish connection to the metrics exporter agent. Metrics will not be exported. Exporter agent status: RpcError: Running out of retries to initialize the metrics agent. rpc_code: 14
+[36m(pid=gcs_server)[0m [2026-06-19 09:39:02,160 E 2047833 2047833] (gcs_server) gcs_server.cc:961: Failed to establish connection to the event+metrics exporter agent. Events and metrics will not be exported. Exporter agent status: RpcError: Running out of retries to initialize the metrics agent. rpc_code: 14
+[36m(Learner pid=2050428)[0m [2026-06-19 09:39:02,996 E 2050428 2051454] core_worker_process.cc:863: Failed to establish connection to the metrics exporter agent. Metrics will not be exported. Exporter agent status: RpcError: Running out of retries to initialize the metrics agent. rpc_code: 14
+[2026-06-19 09:39:03,492 E 2047748 2050417] core_worker_process.cc:863: Failed to establish connection to the metrics exporter agent. Metrics will not be exported. Exporter agent status: RpcError: Running out of retries to initialize the metrics agent. rpc_code: 14
+[36m(pid=2051322)[0m [2026-06-19 09:39:03,470 E 2051322 2057069] core_worker_process.cc:863: Failed to establish connection to the metrics exporter agent. Metrics will not be exported. Exporter agent status: RpcError: Running out of retries to initialize the metrics agent. rpc_code: 14[32m [repeated 127x across cluster] (Ray deduplicates logs by default. Set RAY_DEDUP_LOGS=0 to disable log deduplication, or see https://docs.ray.io/en/master/ray-observability/user-guides/configure-logging.html#log-deduplication for more options.)[0m
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1781856753.281906 2048513 chttp2_transport.cc:1182] ipv4:172.26.21.50:34957: Got goaway [2] err=UNAVAILABLE:GOAWAY received; Error code: 2; Debug Text: Cancelling all calls {created_time:"2026-06-19T17:12:33.281901334+09:00", http2_error:2, grpc_status:14}
+Closing ray instance
+[seed=3] finished
