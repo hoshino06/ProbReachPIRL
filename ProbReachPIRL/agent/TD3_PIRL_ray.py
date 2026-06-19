@@ -1082,8 +1082,9 @@ def train_distributed(
                     summary_writer.add_scalar("RL/Average Reward", np.mean(reward_window), update_count)
                     summary_writer.add_scalar("RL/Episode Q0",     np.nanmean(q0_window),  update_count)
                     summary_writer.add_scalar("Loss/RL",  loss["td"],  update_count)
-                    summary_writer.add_scalar("Loss/HJB", loss["hjb"], update_count)
-                    summary_writer.add_scalar("Loss/HJB_uniform", hjb_uniform, update_count)
+                    summary_writer.add_scalar("Loss/HJB", hjb_uniform, update_count)
+                    if pinn_sample_mode == "replay":
+                        summary_writer.add_scalar("Loss/HJB_replay", loss["hjb"], update_count)
                     summary_writer.add_scalar("Loss/BDR", loss["bdr"], update_count)
                     summary_writer.add_scalar("Weights/RL",  weight_td3, update_count)
                     summary_writer.add_scalar("Weights/HJB", weight_hjb, update_count)

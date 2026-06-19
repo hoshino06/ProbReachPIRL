@@ -99,12 +99,8 @@ class Env(object):
             os.environ.get("DRIFT_RESET_MIXTURE_PROBS", "0.45,0.45,0.10")
         )
         self.reset_t_mode = os.environ.get("DRIFT_RESET_T_MODE", "fixed").lower()
-<<<<<<< HEAD
         self.reset_t_min = float(os.environ.get("DRIFT_RESET_T_MIN", "0.0"))
-=======
-        self.reset_t_min = float(os.environ.get("DRIFT_RESET_T_MIN", "0.2"))
         self.reset_t_max = float(os.environ.get("DRIFT_RESET_T_MAX", str(self.Tmax)))
->>>>>>> 84a830a96512b2b8792fa027d09917d7db538f46
         self.reset_epsi_min = -0.2
         self.reset_epsi_max = 0.8
 
@@ -695,14 +691,9 @@ class Env(object):
         if self.reset_t_mode == "fixed":
             T = self.Tmax
         elif self.reset_t_mode == "random":
-<<<<<<< HEAD
-            t_min = np.clip(self.reset_t_min, 0.0, self.Tmax)
-            T = np.random.uniform(t_min, self.Tmax)
-=======
             t_low = max(0.0, min(self.reset_t_min, self.Tmax))
             t_high = max(t_low, min(self.reset_t_max, self.Tmax))
             T = np.random.uniform(t_low, t_high)
->>>>>>> 84a830a96512b2b8792fa027d09917d7db538f46
         else:
             raise ValueError("DRIFT_RESET_T_MODE must be either 'fixed' or 'random'.")
 
