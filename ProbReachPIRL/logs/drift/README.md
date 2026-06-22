@@ -6,8 +6,8 @@ This directory contains curated training logs for the drifting-control task.
 
 The main curated TD3 series are:
 
-- `td3_T002/`: fixed short horizon experiments.  The reset horizon is effectively `T=0.2`.
-- `td3_T01/`: fixed horizon experiments with `T=5.0`.
+- `td3_T002/`: fixed reset horizon experiments with `T=5.0`.  The time step is  `dt=0.02`.
+- `td3_T01/`: fixed reset horizon experiments with `T=5.0`. The time step is  `dt=0.1`.
 - `td3_T01_randT/`: random horizon experiments.  Initial states use `T` sampled in `[0, 5]`.
 
 Directory names use the following convention:
@@ -47,12 +47,8 @@ Main sequence:
 - `up10M_scale10_mix334/ckpt-10000000`
 
 At the `T=5`, `mu=0.55` MC reachability evaluation slice, the 10M fixed-`T`
-runs gave high closed-loop reachability.  Among the evaluated seeds, seed3 was
-the best overall.
+runs gave high closed-loop reachability.
 
-Figures and `.npz` files:
-
-- `../../plot/drift_mc_reachability_0620_0653_td3_T5_10M/`
 
 ### `td3_T01_randT`
 
@@ -67,12 +63,8 @@ Main sequence:
 
 The random-`T` 10M runs calibrate better than the 3M random-`T` runs, but the
 learned policy is still weaker than the fixed-`T` 10M policy on the `T=5`
-beta-r slice.  Among the evaluated random-`T` seeds, seed3 had the best overall
-MC/value calibration.
+beta-r slice.
 
-Figures and `.npz` files:
-
-- `../../plot/drift_mc_reachability_0619_1831_td3_10M/`
 
 ## Scheduling logs
 
