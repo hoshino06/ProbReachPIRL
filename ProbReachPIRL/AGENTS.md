@@ -18,7 +18,7 @@ For drift experiments, curated TD3 baselines are under:
 
 - `logs/drift/td3_T01/`: fixed `T=5.0` TD3.
 - `logs/drift/td3_T01_randT/`: random `T in [0, 5]` TD3.
-- `logs/drift/td3_T002/`: older short-horizon TD3 baseline.
+- `logs/drift/td3_T002/`: older short-dt (`dt=0.02`) TD3 baseline with mix442.
 
 See `logs/drift/README.md` for the current curated checkpoint map.
 
