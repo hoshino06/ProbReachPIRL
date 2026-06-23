@@ -68,8 +68,22 @@ beta-r slice.
 
 ## Scheduling logs
 
-Scheduling/PIRL results should be added here after the current scheduling runs
-are evaluated and curated.
+Curated scheduling/PIRL logs are grouped by the two scheduling settings that
+matter most:
+
+- whether the reset horizon is randomized (`randT`), and
+- whether the HJB residual is sampled from replay memory or uniform samples.
+
+Current curated directory:
+
+- `scheduling_randT_replayHJB/`: random-`T` scheduling with replay-memory HJB
+  sampling. Representative seeds are kept by MC reachability meanMC, and
+  checkpoints are kept only at 1M-update intervals, except stopped failure
+  references where the final available checkpoint is kept.
+
+The earlier long names such as `scheduling_T01_randT_scale10_mix334...` were
+archived after curation because `scale10_mix334` mainly describes the inherited
+TD3 checkpoint rather than the scheduling condition being compared.
 
 ## Notes
 
