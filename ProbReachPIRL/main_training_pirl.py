@@ -85,6 +85,10 @@ parser.add_argument("--policy_update_freq", default=None, type=int,
                     help="Override delayed policy update frequency.")
 parser.add_argument("--initial_exploration_num", default=None, type=int,
                     help="Override initial replay buffer fill size.")
+parser.add_argument("--checkpoint_freq", default=None, type=int,
+                    help="Override checkpoint save frequency in learner updates.")
+parser.add_argument("--log_freq", default=None, type=int,
+                    help="Override TensorBoard scalar logging frequency in learner updates.")
 parser.add_argument("--critic_lr", default=None, type=float,
                     help="Override critic learning rate.")
 parser.add_argument("--actor_lr", default=None, type=float,
@@ -262,6 +266,8 @@ def main():
         case_cfg.policy_update_freq = args.policy_update_freq
     if args.initial_exploration_num is not None:
         case_cfg.initial_exploration_num = args.initial_exploration_num
+    if args.checkpoint_freq is not None:
+        case_cfg.checkpoint_freq = args.checkpoint_freq
     if args.learning_rate is not None:
         case_cfg.critic_lr = args.learning_rate
         case_cfg.actor_lr = args.learning_rate
@@ -326,6 +332,8 @@ def main():
     print(f"Policy update freq: {case_cfg.policy_update_freq}")
     print(f"Initial exploration num: {case_cfg.initial_exploration_num}")
     print(f"Initial exploration: {args.initial_exploration_policy}")
+    print(f"Checkpoint freq: {case_cfg.checkpoint_freq}")
+    print(f"Log freq: {args.log_freq if args.log_freq is not None else 'default'}")
     if weight_schedule is not None:
         print(f"Schedule: center={weight_schedule['center']}, sharpness={weight_schedule['sharpness']}, final={weight_schedule['final']}")
         print(f"Schedule time base: {args.schedule_time_base}")
@@ -356,6 +364,7 @@ def main():
         seed=args.seed,
         num_workers=args.num_workers,
         log_dir=case_cfg.log_dir,
+        log_freq=args.log_freq if args.log_freq is not None else 100,
         checkpoint_freq=case_cfg.checkpoint_freq,
         verbose=args.verbose,
         device=args.device,

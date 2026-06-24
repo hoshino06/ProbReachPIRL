@@ -37,6 +37,8 @@ REPLAY_MEMORY_SIZE=${REPLAY_MEMORY_SIZE:-}
 EXPLORATION_NOISE=${EXPLORATION_NOISE:-}
 POLICY_UPDATE_FREQ=${POLICY_UPDATE_FREQ:-}
 INITIAL_EXPLORATION_NUM=${INITIAL_EXPLORATION_NUM:-}
+CHECKPOINT_FREQ=${CHECKPOINT_FREQ:-}
+LOG_FREQ=${LOG_FREQ:-}
 LEARNING_RATE=${LEARNING_RATE:-}
 CRITIC_LR=${CRITIC_LR:-}
 ACTOR_LR=${ACTOR_LR:-}
@@ -115,6 +117,14 @@ PY
 
   if [[ -n "${INITIAL_EXPLORATION_NUM}" ]]; then
     CMD+=(--initial_exploration_num "${INITIAL_EXPLORATION_NUM}")
+  fi
+
+  if [[ -n "${CHECKPOINT_FREQ}" ]]; then
+    CMD+=(--checkpoint_freq "${CHECKPOINT_FREQ}")
+  fi
+
+  if [[ -n "${LOG_FREQ}" ]]; then
+    CMD+=(--log_freq "${LOG_FREQ}")
   fi
 
   if [[ -n "${LEARNING_RATE}" ]]; then
