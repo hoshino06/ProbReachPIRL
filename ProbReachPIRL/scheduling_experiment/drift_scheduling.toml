@@ -1,0 +1,82 @@
+# PIRL scheduling experiment config for the drift environment.
+# Run with:
+#   conda activate pirl
+#   python scheduling_experiment/run_scheduling_experiment.py --config scheduling_experiment/drift_scheduling.toml
+
+[experiment]
+baseline_checkpoint = "logs/drift/td3_T01_randT/up10M_scale10_mix334_randT/ckpt-10000000"
+rounds = 4
+updates_per_round = 1000000
+# Each round runs at most this many candidates. The advisor prompt also asks
+# for exactly this many next-round candidates.
+max_parallel_candidates = 2
+learner_num_gpus = 0.16
+advisor_command = "codex exec"
+
+# For 1M-update continuation trials, checkpoint_freq=1000000 saves only the
+# final checkpoint of each candidate. log_freq controls TensorBoard scalar
+# density; increase it if event files become too large.
+checkpoint_freq = 1000000
+log_freq = 1000
+
+[training_env]
+CASE = "drift"
+METHOD = "scheduling"
+SEEDS = "1"
+NUM_WORKERS = 2
+
+DRIFT_DT = 0.1
+DRIFT_RESET_SCALE = 1.0
+DRIFT_RESET_MODE = "mixture"
+DRIFT_RESET_MIXTURE_PROBS = "0.3,0.3,0.4" # beta_r, ey_epsi, full
+DRIFT_RESET_T_MODE = "random"
+DRIFT_RESET_T_MIN = 0.0
+DRIFT_RESET_T_MAX = 5.0
+
+INITIAL_EXPLORATION_POLICY = "policy"
+PINN_SAMPLE_MODE = "replay"
+PINN_REPLAY_FRACTION = 1.0
+PINN_REPLAY_JITTER = 0.0
+
+HJB_LAPLACIAN_MODE = "loop"
+SCHEDULE_TIME_BASE = "local"
+# With SCHEDULE_TIME_BASE="local", schedule_center is measured from the start
+# of each continuation block. For example, when continuing 10M -> 11M,
+# schedule_center = 500000 means the midpoint of that block, i.e. 10.5M.
+
+[evaluation]
+T = 5.0
+num_grid = 31
+num_rollouts = 16
+device = "cuda"
+
+[advisor_context]
+manual_notes = """
+- Treat HJB/BDR=0.1 over a short continuation as potentially aggressive unless reward and MC reachability stay stable.
+- Prefer cautious increases around 0.01-0.02 before trying larger physics weights.
+"""
+reference_paths = [
+  "logs/drift/README.md",
+  "logs/drift/scheduling_randT_replayHJB",
+  "logs/drift/td3_T01_randT/",
+]
+
+[initial_plan]
+round_note = "Conservative initial sweep from a randT TD3 baseline. Keep RL weight at 1.0 and introduce small HJB/BDR weights."
+
+[[initial_plan.candidates]]
+name = "ramp0to001"
+start_checkpoint = ""
+schedule_initial = [1.0, 0.0, 0.0]
+schedule_final = [1.0, 0.01, 0.01]
+# Local midpoint of a 1M-update continuation block.
+schedule_center = 500000
+schedule_sharpness = 0.00001
+
+[[initial_plan.candidates]]
+name = "ramp0to0005"
+start_checkpoint = ""
+schedule_initial = [1.0, 0.0, 0.0]
+schedule_final = [1.0, 0.005, 0.005]
+schedule_center = 500000
+schedule_sharpness = 0.00001
