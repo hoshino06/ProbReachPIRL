@@ -21,7 +21,9 @@ with the same stem, e.g. `scheduling_experiment/drift_scheduling/`.
 
 `[experiment].max_parallel_candidates` controls how many candidates run at the
 same time. Set it to `1` for sequential runs, or `2`/`3` if GPU/CPU memory can
-handle multiple scheduling trials concurrently.
+handle multiple scheduling trials concurrently. Each round runs at most this
+many candidates, and the advisor prompt asks for exactly this many next-round
+candidates so work fits in one parallel batch.
 `[experiment].learner_num_gpus` controls the fractional GPU allocation for each
 Ray learner. For example, `0.16` allows several learner actors to share one GPU,
 subject to actual memory use.
@@ -55,6 +57,8 @@ advisor_command = "codex exec"
 
 The advisor is constrained to write the next plan JSON. Training and evaluation
 are still performed by this deterministic orchestration script.
+If `advisor_command` is non-empty, the script checks that the executable exists
+before starting any training, so a missing Codex CLI fails fast.
 
 Use `[advisor_context]` to pass manual experiment knowledge into the advisor
 prompt. The loop does not automatically mine `logs/`; instead, put trusted
