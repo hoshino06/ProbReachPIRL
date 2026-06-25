@@ -258,6 +258,8 @@ def main():
     case_cfg = CASE_CONFIGS[args.case]
     if args.log_dir_override is not None:
         case_cfg.log_dir = args.log_dir_override
+    if args.checkpoint_freq is not None:
+        case_cfg.checkpoint_freq = args.checkpoint_freq
     if args.replay_memory_size is not None:
         case_cfg.replay_memory_size = args.replay_memory_size
     if args.exploration_noise is not None:
@@ -266,8 +268,6 @@ def main():
         case_cfg.policy_update_freq = args.policy_update_freq
     if args.initial_exploration_num is not None:
         case_cfg.initial_exploration_num = args.initial_exploration_num
-    if args.checkpoint_freq is not None:
-        case_cfg.checkpoint_freq = args.checkpoint_freq
     if args.learning_rate is not None:
         case_cfg.critic_lr = args.learning_rate
         case_cfg.actor_lr = args.learning_rate

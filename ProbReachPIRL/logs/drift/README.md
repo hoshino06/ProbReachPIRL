@@ -59,11 +59,11 @@ Main sequence:
 - `up02M_scale08_mix334_randT/ckpt-2000000`
 - `up03M_scale10_mix334_randT/ckpt-3000000`
 - `up10M_scale10_mix334_randT/ckpt-10000000`
-- `15M_scale10_mix334_randT/` is a running continuation from 10M to 15M.
+- `up15M_scale10_mix334_randT/ckpt-15000000`
 
-The random-`T` 10M runs calibrate better than the 3M random-`T` runs, but the
-learned policy is still weaker than the fixed-`T` 10M policy on the `T=5`
-beta-r slice.
+The random-`T` 15M representative is seed 3 from the `0622_1051` continuation.
+It had the best MC reachability meanMC among the 15M seeds on both evaluated
+planes at `T=5.0`, `mu=0.55`.
 
 
 ## Scheduling logs
