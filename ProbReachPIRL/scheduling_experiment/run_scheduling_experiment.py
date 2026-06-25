@@ -177,19 +177,17 @@ def make_codex_prompt(
             for path in reference_paths:
                 context_block += f"- {path}\n"
 
-    return f"""You are controlling PIRL weight-scheduling experiments.
+    return f"""You are choosing the next PIRL weight-scheduling round.
 
-Goal:
-- Find a PIRL scheduling path that, by {target_total_updates} total updates, outperforms the TD3 baseline started from {baseline_checkpoint}.
-- Use TD3 as the final safety reference, not as a reason to restart every intermediate round.
-- Preserve reward and MC reachability while reducing value calibration error mean|MC-V|.
-- Avoid abrupt reward collapse.
+Objective:
+- By {target_total_updates} total updates, outperform the TD3 baseline from {baseline_checkpoint}.
+- Keep final reward no worse than TD3 while reducing value calibration error mean|MC-V|.
 
-Read these completed trial summaries and choose the next round.
-Choose exactly {max_parallel_candidates} candidate(s), matching max_parallel_candidates, so all candidates can run in one parallel batch.
-Write ONLY valid JSON to this exact file: {next_plan_path}
+Output:
+- Write ONLY valid JSON to: {next_plan_path}
+- Return exactly {max_parallel_candidates} candidate(s).
 
-JSON schema:
+Schema:
 {{
   "round_note": "brief rationale",
   "candidates": [
@@ -204,15 +202,13 @@ JSON schema:
   ]
 }}
 
-Rules:
-- Prefer continuing from the best safe checkpoint if reward and MC are stable.
-- If reward dropped or mean MC degraded, first back off weights or slow the schedule from the best prior scheduling checkpoint.
-- Use at most one TD3-restart control per round unless all scheduling checkpoints collapsed.
-- Do not repeat an already completed start_checkpoint + schedule_initial + schedule_final combination unless the round_note explicitly justifies it as a control.
-- Advance the experimental frontier toward the {target_total_updates}-update target; intermediate rounds may explore candidates that are not yet better than TD3 if they improve calibration or identify a safer schedule.
+Selection rules:
+- Continue from the best safe checkpoint when reward and MC are stable.
+- If reward or meanMC degraded, reduce weights or slow the schedule before trying larger weights.
 - Increase HJB/BDR gradually.
-- Return exactly {max_parallel_candidates} candidate(s), no more and no fewer.
-- Keep the workflow general: do not hard-code drift-specific assumptions beyond using the reported metrics.
+- Use at most one TD3-restart control per round, unless all scheduling checkpoints collapsed.
+- Do not repeat an existing start_checkpoint + schedule_initial + schedule_final combination unless round_note explains why.
+- Use only reported metrics and supplied context; avoid hard-coded environment assumptions.
 {context_block}
 
 Completed results JSON:
