@@ -60,6 +60,17 @@ are still performed by this deterministic orchestration script.
 If `advisor_command` is non-empty, the script checks that the executable exists
 before starting any training, so a missing Codex CLI fails fast.
 
+The generated advisor prompt starts with:
+
+```text
+You are controlling the next round of PIRL weight scheduling.
+```
+
+This wording is intentional: the advisor is treated as the outer-loop
+controller for the next scheduling round, not merely as a passive summary tool.
+It should choose the next candidate schedules within the JSON schema and the
+selection rules printed in `codex_next_plan_prompt.md`.
+
 Use `[advisor_context]` to pass manual experiment knowledge into the advisor
 prompt. The loop does not automatically mine `logs/`; instead, put trusted
 notes and relevant paths in the TOML so the advisor can account for prior

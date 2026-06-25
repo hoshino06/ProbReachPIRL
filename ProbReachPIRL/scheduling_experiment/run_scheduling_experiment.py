@@ -177,7 +177,7 @@ def make_codex_prompt(
             for path in reference_paths:
                 context_block += f"- {path}\n"
 
-    return f"""You are choosing the next PIRL weight-scheduling round.
+    return f"""You are controlling the next round of PIRL weight scheduling.
 
 Objective:
 - By {target_total_updates} total updates, outperform the TD3 baseline from {baseline_checkpoint}.
@@ -208,7 +208,6 @@ Selection rules:
 - Increase HJB/BDR gradually.
 - Use at most one TD3-restart control per round, unless all scheduling checkpoints collapsed.
 - Do not repeat an existing start_checkpoint + schedule_initial + schedule_final combination unless round_note explains why.
-- Use only reported metrics and supplied context; avoid hard-coded environment assumptions.
 {context_block}
 
 Completed results JSON:
