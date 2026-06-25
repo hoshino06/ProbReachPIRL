@@ -17,6 +17,7 @@ import json
 import os
 import re
 import shlex
+import shutil
 import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -160,6 +161,9 @@ def make_codex_prompt(
     results: list[dict[str, Any]],
     next_plan_path: Path,
     advisor_context: dict[str, Any],
+    baseline_checkpoint: Path,
+    target_total_updates: int,
+    max_parallel_candidates: int,
 ) -> str:
     manual_notes = advisor_context.get("manual_notes", "").strip()
     reference_paths = advisor_context.get("reference_paths", [])
@@ -176,11 +180,13 @@ def make_codex_prompt(
     return f"""You are controlling PIRL weight-scheduling experiments.
 
 Goal:
-- Keep TensorBoard reward and MC reachability no worse than the TD3 baseline.
-- Reduce value calibration error mean|MC-V|.
+- Find a PIRL scheduling path that, by {target_total_updates} total updates, outperforms the TD3 baseline started from {baseline_checkpoint}.
+- Use TD3 as the final safety reference, not as a reason to restart every intermediate round.
+- Preserve reward and MC reachability while reducing value calibration error mean|MC-V|.
 - Avoid abrupt reward collapse.
 
 Read these completed trial summaries and choose the next round.
+Choose exactly {max_parallel_candidates} candidate(s), matching max_parallel_candidates, so all candidates can run in one parallel batch.
 Write ONLY valid JSON to this exact file: {next_plan_path}
 
 JSON schema:
@@ -200,8 +206,12 @@ JSON schema:
 
 Rules:
 - Prefer continuing from the best safe checkpoint if reward and MC are stable.
-- If reward dropped or mean MC degraded, back off weights or restart from a safer checkpoint.
-- Increase HJB/BDR gradually; normally test 2-4 candidates per round.
+- If reward dropped or mean MC degraded, first back off weights or slow the schedule from the best prior scheduling checkpoint.
+- Use at most one TD3-restart control per round unless all scheduling checkpoints collapsed.
+- Do not repeat an already completed start_checkpoint + schedule_initial + schedule_final combination unless the round_note explicitly justifies it as a control.
+- Advance the experimental frontier toward the {target_total_updates}-update target; intermediate rounds may explore candidates that are not yet better than TD3 if they improve calibration or identify a safer schedule.
+- Increase HJB/BDR gradually.
+- Return exactly {max_parallel_candidates} candidate(s), no more and no fewer.
 - Keep the workflow general: do not hard-code drift-specific assumptions beyond using the reported metrics.
 {context_block}
 
@@ -226,13 +236,42 @@ def call_advisor(advisor_command: str, prompt: str, prompt_path: Path, next_plan
         raise RuntimeError(f"Advisor did not create {next_plan_path}")
 
 
-def prepare_plan(path: Path | None, baseline_checkpoint: Path, inline_plan: dict[str, Any] | None = None) -> dict[str, Any]:
+def validate_advisor_command(advisor_command: str | None) -> None:
+    if not advisor_command:
+        return
+    parts = shlex.split(advisor_command)
+    if not parts:
+        raise ValueError("advisor_command is set but empty after shell parsing.")
+    executable = parts[0]
+    if shutil.which(executable) is None:
+        raise FileNotFoundError(
+            f"advisor_command executable not found before training starts: {executable!r}. "
+            "Set [experiment].advisor_command = \"\" for manual mode, or activate/install the advisor CLI."
+        )
+
+
+def prepare_plan(
+    path: Path | None,
+    baseline_checkpoint: Path,
+    max_candidates: int,
+    inline_plan: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     if inline_plan is not None:
         plan = inline_plan
     elif path is not None and path.exists():
         plan = load_json(path)
     else:
         raise FileNotFoundError("No candidate plan was provided by TOML config or next-round JSON.")
+    candidates = list(plan.get("candidates", []))
+    if len(candidates) > max_candidates:
+        plan = dict(plan)
+        plan["dropped_candidates"] = candidates[max_candidates:]
+        plan["candidates"] = candidates[:max_candidates]
+        print(
+            f"Candidate plan has {len(candidates)} candidates; "
+            f"running only the first {max_candidates} to match max_parallel_candidates.",
+            flush=True,
+        )
     for c in plan.get("candidates", []):
         if not c.get("start_checkpoint"):
             c["start_checkpoint"] = str(baseline_checkpoint)
@@ -256,7 +295,7 @@ def run_candidate(candidate: dict[str, Any], round_dir: Path, args: argparse.Nam
             env[str(key)] = str(value)
     env.update({
         "TARGET_UPDATES": str(target_updates),
-        "LOG_DIR_OVERRIDE": str(trial_log_dir),
+        "LOG_DIR_OVERRIDE": str(trial_log_dir.resolve()),
         "LOG_TAG": name,
         "CHECKPOINT_FREQ": str(args.checkpoint_freq),
         "LOG_FREQ": str(args.log_freq),
@@ -340,6 +379,7 @@ def main() -> None:
         "baseline_checkpoint",
         "rounds",
         "updates_per_round",
+        "target_total_updates",
         "max_parallel_candidates",
         "learner_num_gpus",
         "advisor_command",
@@ -382,11 +422,14 @@ def main() -> None:
         p.error("[initial_plan].candidates are required in the TOML config")
 
     args.baseline_checkpoint = Path(experiment["baseline_checkpoint"])
+    args.config = args.config.resolve()
     args.result_root = args.config.with_suffix("")
     args.rounds = int(experiment["rounds"])
     args.updates_per_round = int(experiment["updates_per_round"])
+    args.target_total_updates = int(experiment["target_total_updates"])
     args.max_parallel_candidates = int(experiment["max_parallel_candidates"])
     args.advisor_command = str(experiment["advisor_command"]) if experiment["advisor_command"] else None
+    validate_advisor_command(args.advisor_command)
     args.learner_num_gpus = float(experiment["learner_num_gpus"])
     args.checkpoint_freq = int(experiment["checkpoint_freq"])
     args.log_freq = int(experiment["log_freq"])
@@ -409,7 +452,12 @@ def main() -> None:
     for r in range(args.rounds):
         round_dir = result_root / f"round_{r:03d}"
         round_dir.mkdir(parents=True, exist_ok=True)
-        plan = prepare_plan(plan_path, args.baseline_checkpoint, inline_plan if r == 0 else None)
+        plan = prepare_plan(
+            plan_path,
+            args.baseline_checkpoint,
+            args.max_parallel_candidates,
+            inline_plan if r == 0 else None,
+        )
         dump_json(round_dir / "plan.json", plan)
 
         results = run_candidates(plan.get("candidates", []), round_dir, args)
@@ -418,7 +466,15 @@ def main() -> None:
         dump_json(result_root / "all_results.json", all_results)
 
         next_plan_path = result_root / f"round_{r+1:03d}_plan.json"
-        prompt = make_codex_prompt(round_dir, all_results, next_plan_path, args.advisor_context)
+        prompt = make_codex_prompt(
+            round_dir,
+            all_results,
+            next_plan_path,
+            args.advisor_context,
+            args.baseline_checkpoint,
+            args.target_total_updates,
+            args.max_parallel_candidates,
+        )
         prompt_path = round_dir / "codex_next_plan_prompt.md"
         prompt_path.write_text(prompt, encoding="utf-8")
 
