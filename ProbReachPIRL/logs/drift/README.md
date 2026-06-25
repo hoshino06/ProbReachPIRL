@@ -21,7 +21,7 @@ Directory names use the following convention:
 
 ### `td3_T002`
 
-Older fixed-short-horizon TD3 curriculum.
+Older fixed-`T=5.0` TD3 curriculum with a smaller time step, `dt=0.02`.
 
 Main sequence:
 
@@ -33,7 +33,7 @@ Main sequence:
 - `up11M_scale10_mix442/ckpt-11000000`
 - `up13M_scale10_mix442/ckpt-13000000`
 
-This series is mostly a historical baseline for short-horizon training.
+This series is mostly a historical baseline for the smaller-`dt` training.
 
 ### `td3_T01`
 
@@ -68,18 +68,40 @@ planes at `T=5.0`, `mu=0.55`.
 
 ## Scheduling logs
 
-Curated scheduling/PIRL logs are grouped by the two scheduling settings that
-matter most:
+Scheduling/PIRL runs were started after checking the TD3 baselines above.  The
+main hand-run workflow was:
 
-- whether the reset horizon is randomized (`randT`), and
-- whether the HJB residual is sampled from replay memory or uniform samples.
+1. train or select a TD3 checkpoint,
+2. continue from that checkpoint with HJB/BDR scheduling,
+3. monitor TensorBoard reward and losses, and
+4. evaluate checkpoints with MC reachability on the beta-r and ey-epsi planes at
+   `T=5.0`, `mu=0.55`.
 
-Current curated directory:
+Curated scheduling logs are grouped by the conditions that mattered most during
+the manual comparison:
 
-- `scheduling_randT_replayHJB/`: random-`T` scheduling with replay-memory HJB
-  sampling. Representative seeds are kept by MC reachability meanMC, and
-  checkpoints are kept only at 1M-update intervals, except stopped failure
-  references where the final available checkpoint is kept.
+- `scheduling_randT_replayHJB/`: random reset horizon, replay-memory HJB
+  sampling. This is the main scheduling continuation from the random-`T` TD3
+  baseline.
+- `scheduling_fixedT_replayHJB/`: fixed `T=5.0`, replay-memory HJB sampling.
+- `scheduling_fixedT_uniformHJB/`: fixed `T=5.0`, uniform HJB sampling.
+- `scheduling_fixed2randT_uniformHJB/`: started from a fixed-`T` TD3 baseline,
+  then continued with randomized `T` and uniform HJB sampling.
+
+Within each scheduling group, directory names keep the date/time prefix for
+traceability and use short condition tags:
+
+- `ramp001`: HJB and BDR weights were ramped up to `0.01`.
+- `ramp005`: HJB and BDR weights were ramped up to `0.05`.
+- `const001`: HJB and BDR weights were held at `0.01`.
+- `fail` or `fail_hjb01`: kept failure reference where larger HJB/BDR weights
+  degraded reward.
+- `XMtoYM`: continuation range in TD3/PIRL update count.
+
+Representative seeds were selected by MC reachability meanMC on the evaluated
+planes.  For active continuations, more than one seed may be kept until the next
+selection step is made.  Checkpoints are kept at 1M-update intervals whenever
+possible; stopped failure references keep the final useful checkpoint.
 
 The earlier long names such as `scheduling_T01_randT_scale10_mix334...` were
 archived after curation because `scale10_mix334` mainly describes the inherited
