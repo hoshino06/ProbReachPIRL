@@ -6,10 +6,8 @@
 [experiment]
 baseline_checkpoint = "logs/drift/td3_T01_randT/up10M_scale10_mix334_randT/ckpt-10000000"
 rounds = 4
-updates_per_round = 100000
-target_total_updates = 10400000
-# Each round runs at most this many candidates. The advisor prompt also asks
-# for exactly this many next-round candidates.
+updates_per_round = 1000000
+target_total_updates = 14000000
 max_parallel_candidates = 2
 learner_num_gpus = 0.16
 advisor_command = "codex exec"

@@ -161,6 +161,8 @@ def make_codex_prompt(
     results: list[dict[str, Any]],
     next_plan_path: Path,
     advisor_context: dict[str, Any],
+    baseline_checkpoint: Path,
+    target_total_updates: int,
     max_parallel_candidates: int,
 ) -> str:
     manual_notes = advisor_context.get("manual_notes", "").strip()
@@ -178,8 +180,9 @@ def make_codex_prompt(
     return f"""You are controlling PIRL weight-scheduling experiments.
 
 Goal:
-- Keep TensorBoard reward and MC reachability no worse than the TD3 baseline.
-- Reduce value calibration error mean|MC-V|.
+- Find a PIRL scheduling path that, by {target_total_updates} total updates, outperforms the TD3 baseline started from {baseline_checkpoint}.
+- Use TD3 as the final safety reference, not as a reason to restart every intermediate round.
+- Preserve reward and MC reachability while reducing value calibration error mean|MC-V|.
 - Avoid abrupt reward collapse.
 
 Read these completed trial summaries and choose the next round.
@@ -203,7 +206,10 @@ JSON schema:
 
 Rules:
 - Prefer continuing from the best safe checkpoint if reward and MC are stable.
-- If reward dropped or mean MC degraded, back off weights or restart from a safer checkpoint.
+- If reward dropped or mean MC degraded, first back off weights or slow the schedule from the best prior scheduling checkpoint.
+- Use at most one TD3-restart control per round unless all scheduling checkpoints collapsed.
+- Do not repeat an already completed start_checkpoint + schedule_initial + schedule_final combination unless the round_note explicitly justifies it as a control.
+- Advance the experimental frontier toward the {target_total_updates}-update target; intermediate rounds may explore candidates that are not yet better than TD3 if they improve calibration or identify a safer schedule.
 - Increase HJB/BDR gradually.
 - Return exactly {max_parallel_candidates} candidate(s), no more and no fewer.
 - Keep the workflow general: do not hard-code drift-specific assumptions beyond using the reported metrics.
@@ -289,7 +295,7 @@ def run_candidate(candidate: dict[str, Any], round_dir: Path, args: argparse.Nam
             env[str(key)] = str(value)
     env.update({
         "TARGET_UPDATES": str(target_updates),
-        "LOG_DIR_OVERRIDE": str(trial_log_dir),
+        "LOG_DIR_OVERRIDE": str(trial_log_dir.resolve()),
         "LOG_TAG": name,
         "CHECKPOINT_FREQ": str(args.checkpoint_freq),
         "LOG_FREQ": str(args.log_freq),
@@ -373,6 +379,7 @@ def main() -> None:
         "baseline_checkpoint",
         "rounds",
         "updates_per_round",
+        "target_total_updates",
         "max_parallel_candidates",
         "learner_num_gpus",
         "advisor_command",
@@ -415,9 +422,11 @@ def main() -> None:
         p.error("[initial_plan].candidates are required in the TOML config")
 
     args.baseline_checkpoint = Path(experiment["baseline_checkpoint"])
+    args.config = args.config.resolve()
     args.result_root = args.config.with_suffix("")
     args.rounds = int(experiment["rounds"])
     args.updates_per_round = int(experiment["updates_per_round"])
+    args.target_total_updates = int(experiment["target_total_updates"])
     args.max_parallel_candidates = int(experiment["max_parallel_candidates"])
     args.advisor_command = str(experiment["advisor_command"]) if experiment["advisor_command"] else None
     validate_advisor_command(args.advisor_command)
@@ -462,6 +471,8 @@ def main() -> None:
             all_results,
             next_plan_path,
             args.advisor_context,
+            args.baseline_checkpoint,
+            args.target_total_updates,
             args.max_parallel_candidates,
         )
         prompt_path = round_dir / "codex_next_plan_prompt.md"
