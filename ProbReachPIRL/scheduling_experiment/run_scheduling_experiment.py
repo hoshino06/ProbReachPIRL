@@ -180,7 +180,9 @@ def make_codex_prompt(
     return f"""You are controlling the next round of PIRL weight scheduling.
 
 Objective:
-- By {target_total_updates} total updates, outperform the TD3 baseline from {baseline_checkpoint}.
+- Treat {target_total_updates} total updates as the first milestone, not a hard stop.
+- By that milestone, outperform the TD3 baseline from {baseline_checkpoint}.
+- If reward and MC reachability remain stable, keep progressing beyond the milestone.
 - Keep final reward no worse than TD3 while reducing value calibration error mean|MC-V|.
 
 Output:
