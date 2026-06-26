@@ -63,6 +63,19 @@ def dump_json(path: Path, obj: Any) -> None:
         f.write("\n")
 
 
+def extract_plan_json(text: str) -> dict[str, Any] | None:
+    decoder = json.JSONDecoder()
+    plan = None
+    for match in re.finditer(r"\{", text):
+        try:
+            obj, _ = decoder.raw_decode(text[match.start():])
+        except json.JSONDecodeError:
+            continue
+        if isinstance(obj, dict) and isinstance(obj.get("candidates"), list):
+            plan = obj
+    return plan
+
+
 def run(cmd: list[str], *, cwd: Path, env: dict[str, str] | None = None, log_path: Path | None = None) -> subprocess.CompletedProcess[str]:
     printable = " ".join(shlex.quote(x) for x in cmd)
     print(f"$ {printable}", flush=True)
@@ -223,11 +236,8 @@ def call_advisor(advisor_command: str, prompt: str, prompt_path: Path, next_plan
     proc = run(cmd, cwd=PROJECT_ROOT, log_path=prompt_path.with_suffix(".advisor.log"))
     # Some agents print JSON instead of writing the requested file. Accept that too.
     if not next_plan_path.exists():
-        text = proc.stdout.strip()
-        start = text.find("{")
-        end = text.rfind("}")
-        if start >= 0 and end > start:
-            data = json.loads(text[start : end + 1])
+        data = extract_plan_json(proc.stdout)
+        if data is not None:
             dump_json(next_plan_path, data)
     if not next_plan_path.exists():
         raise RuntimeError(f"Advisor did not create {next_plan_path}")
@@ -445,22 +455,31 @@ def main() -> None:
     result_root.mkdir(parents=True, exist_ok=True)
     plan_path = None
 
-    all_results: list[dict[str, Any]] = []
+    all_results_path = result_root / "all_results.json"
+    all_results: list[dict[str, Any]] = load_json(all_results_path) if all_results_path.exists() else []
     for r in range(args.rounds):
         round_dir = result_root / f"round_{r:03d}"
         round_dir.mkdir(parents=True, exist_ok=True)
-        plan = prepare_plan(
-            plan_path,
-            args.baseline_checkpoint,
-            args.max_parallel_candidates,
-            inline_plan if r == 0 else None,
-        )
-        dump_json(round_dir / "plan.json", plan)
+        round_results_path = round_dir / "results.json"
+        if round_results_path.exists():
+            print(f"Reusing completed {round_results_path}", flush=True)
+            results = load_json(round_results_path)
+            if not all_results:
+                all_results.extend(results)
+                dump_json(all_results_path, all_results)
+        else:
+            plan = prepare_plan(
+                plan_path,
+                args.baseline_checkpoint,
+                args.max_parallel_candidates,
+                inline_plan if r == 0 else None,
+            )
+            dump_json(round_dir / "plan.json", plan)
 
-        results = run_candidates(plan.get("candidates", []), round_dir, args)
-        all_results.extend(results)
-        dump_json(round_dir / "results.json", results)
-        dump_json(result_root / "all_results.json", all_results)
+            results = run_candidates(plan.get("candidates", []), round_dir, args)
+            all_results.extend(results)
+            dump_json(round_results_path, results)
+            dump_json(all_results_path, all_results)
 
         next_plan_path = result_root / f"round_{r+1:03d}_plan.json"
         prompt = make_codex_prompt(
@@ -477,12 +496,15 @@ def main() -> None:
 
         if r == args.rounds - 1:
             break
-        if args.advisor_command:
+        if next_plan_path.exists():
+            print(f"Reusing existing next-round plan {next_plan_path}", flush=True)
+        elif args.advisor_command:
             call_advisor(args.advisor_command, prompt, prompt_path, next_plan_path)
         else:
             print(f"Manual mode: edit {next_plan_path} using prompt {prompt_path}")
             break
         plan_path = next_plan_path
+        inline_plan = None
 
 
 if __name__ == "__main__":
