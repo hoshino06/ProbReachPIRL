@@ -1,0 +1,47 @@
+{
+  "name": "micro00001",
+  "start_checkpoint": "scheduling_experiment/fixed2randT_replayHJB_5Mto10M_restart/round_006/randTctrlR6/train/0629_0242_randTctrlR6_seed_1/ckpt-6000000",
+  "start_itr": 6000000,
+  "checkpoint": "/home/ubuntu-root/hoshino/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_replayHJB_5Mto10M_restart/round_007/micro00001/train/0629_1157_micro00001_seed_1/ckpt-7000000",
+  "target_updates": 7000000,
+  "candidate": {
+    "name": "micro00001",
+    "start_checkpoint": "scheduling_experiment/fixed2randT_replayHJB_5Mto10M_restart/round_006/randTctrlR6/train/0629_0242_randTctrlR6_seed_1/ckpt-6000000",
+    "schedule_initial": [
+      1.0,
+      0.0,
+      0.0
+    ],
+    "schedule_final": [
+      1.0,
+      1e-05,
+      1e-05
+    ],
+    "schedule_center": 750000,
+    "schedule_sharpness": 5e-06
+  },
+  "mc_metrics": {
+    "beta_r": {
+      "mean_abs_mc_v": 0.1481,
+      "max_abs_mc_v": 0.9996,
+      "mean_mc": 0.4108,
+      "mean_v": 0.2627
+    },
+    "ey_epsi": {
+      "mean_abs_mc_v": 0.1467,
+      "max_abs_mc_v": 0.783,
+      "mean_mc": 0.5994,
+      "mean_v": 0.4565
+    }
+  },
+  "tensorboard_last": {
+    "RL/Average Reward": 0.1899999976158142,
+    "Loss/RL": 0.005995127372443676,
+    "Loss/HJB": 0.9372576475143433,
+    "Loss/HJB_replay": 2.9013848304748535,
+    "Loss/BDR": 0.3336436450481415,
+    "Weights/RL": 1.0,
+    "Weights/HJB": 7.772990102239419e-06,
+    "Weights/BDR": 7.772990102239419e-06
+  }
+}

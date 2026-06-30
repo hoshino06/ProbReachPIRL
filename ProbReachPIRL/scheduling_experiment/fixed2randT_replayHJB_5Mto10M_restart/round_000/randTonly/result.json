@@ -1,0 +1,47 @@
+{
+  "name": "randTonly",
+  "start_checkpoint": "logs/drift/td3_T01/up05M_scale10_mix334/ckpt-5000000",
+  "start_itr": 5000000,
+  "checkpoint": "/home/ubuntu-root/hoshino/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_replayHJB_5Mto10M_restart/round_000/randTonly/train/0626_1710_randTonly_seed_1/ckpt-6000000",
+  "target_updates": 6000000,
+  "candidate": {
+    "name": "randTonly",
+    "start_checkpoint": "logs/drift/td3_T01/up05M_scale10_mix334/ckpt-5000000",
+    "schedule_initial": [
+      1.0,
+      0.0,
+      0.0
+    ],
+    "schedule_final": [
+      1.0,
+      0.0,
+      0.0
+    ],
+    "schedule_center": 500000,
+    "schedule_sharpness": 1e-05
+  },
+  "mc_metrics": {
+    "beta_r": {
+      "mean_abs_mc_v": 0.1359,
+      "max_abs_mc_v": 0.9993,
+      "mean_mc": 0.4007,
+      "mean_v": 0.2661
+    },
+    "ey_epsi": {
+      "mean_abs_mc_v": 0.1308,
+      "max_abs_mc_v": 0.8659,
+      "mean_mc": 0.5922,
+      "mean_v": 0.4661
+    }
+  },
+  "tensorboard_last": {
+    "RL/Average Reward": 0.14000000059604645,
+    "Loss/RL": 0.005866708233952522,
+    "Loss/HJB": 1.0787588357925415,
+    "Loss/HJB_replay": 2.318056583404541,
+    "Loss/BDR": 0.3721981346607208,
+    "Weights/RL": 1.0,
+    "Weights/HJB": 0.0,
+    "Weights/BDR": 0.0
+  }
+}

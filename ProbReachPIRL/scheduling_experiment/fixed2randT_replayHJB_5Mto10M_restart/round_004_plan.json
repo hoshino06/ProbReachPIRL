@@ -1,0 +1,37 @@
+{
+  "round_note": "Round_003 produced no safe checkpoint: both 7M backoff00025 and 6M restart0005 ended below the 0.20 reward floor. Restart from the fixedT TD3 5M baseline, repeat the zero-weight randT control to separate randT reset damage from PIRL weight damage, and test a smaller-than-tried 0.0001 replay HJB/BDR ramp before any continuation toward 10M.",
+  "candidates": [
+    {
+      "name": "randTctrlR4",
+      "start_checkpoint": "logs/drift/td3_T01/up05M_scale10_mix334/ckpt-5000000",
+      "schedule_initial": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "schedule_final": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05
+    },
+    {
+      "name": "restart0001",
+      "start_checkpoint": "logs/drift/td3_T01/up05M_scale10_mix334/ckpt-5000000",
+      "schedule_initial": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "schedule_final": [
+        1.0,
+        0.0001,
+        0.0001
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05
+    }
+  ]
+}

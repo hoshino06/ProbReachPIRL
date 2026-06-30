@@ -1,0 +1,51 @@
+[seed=1] started
+--------------------------------------------
+Case   : drift
+Method : scheduling
+Seed   : 1
+Device : auto
+Log dir: /home/ubuntu-root/hoshino/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_replayHJB_5Mto10M_restart/round_003/restart0005/train
+Updates: 1000000
+Colloc.: (1000, 100, 100)
+PINN sample mode: replay
+PINN replay fraction: 1.0
+PINN replay jitter: 0.0
+Learner GPUs: 0.16
+HJB Lap.: loop
+Reset scale: 1.0
+Reset mode: mixture
+Reset T mode: random
+Reset mixture probs: 0.3,0.3,0.4
+Reset T range: [0.0, 5.0]
+Drift dt: 0.1
+Replay memory size: 100000
+Critic LR: 0.0001
+Actor LR: 0.0001
+Exploration noise: 0.2
+Policy update freq: 10
+Initial exploration num: 10000
+Initial exploration: policy
+Checkpoint freq: 1000000
+Log freq: 5000
+Schedule: center=500000, sharpness=1e-05, final=(1.0, 0.0005, 0.0005)
+Schedule time base: local
+Log tag: restart0005
+--------------------------------------------
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1782566468.836209 3243735 instrument.cc:563] Metric with name 'grpc.resource_quota.calls_dropped' registered more than once. Ignoring later registration.
+E0000 00:00:1782566468.836242 3243735 instrument.cc:563] Metric with name 'grpc.resource_quota.calls_rejected' registered more than once. Ignoring later registration.
+E0000 00:00:1782566468.836244 3243735 instrument.cc:563] Metric with name 'grpc.resource_quota.connections_dropped' registered more than once. Ignoring later registration.
+E0000 00:00:1782566468.836245 3243735 instrument.cc:563] Metric with name 'grpc.resource_quota.instantaneous_memory_pressure' registered more than once. Ignoring later registration.
+E0000 00:00:1782566468.836246 3243735 instrument.cc:563] Metric with name 'grpc.resource_quota.memory_pressure_control_value' registered more than once. Ignoring later registration.
+2026-06-27 22:21:10,560	INFO worker.py:2013 -- Started a local Ray instance.
+/home/ubuntu-root/anaconda3/envs/pirl/lib/python3.13/site-packages/ray/_private/worker.py:2052: FutureWarning: Tip: In future versions of Ray, Ray will no longer override accelerator visible devices env var if num_gpus=0 or num_gpus=None (default). To enable this behavior and turn off this error message, set RAY_ACCEL_ENV_VAR_OVERRIDE_ON_ZERO=0
+  warnings.warn(
+[33m(raylet)[0m [2026-06-27 22:21:40,031 E 3243989 3243989] (raylet) main.cc:1047: Failed to establish connection to the metrics exporter agent. Metrics will not be exported. Exporter agent status: RpcError: Running out of retries to initialize the metrics agent. rpc_code: 14
+[36m(pid=gcs_server)[0m [2026-06-27 22:21:40,034 E 3243755 3243755] (gcs_server) gcs_server.cc:961: Failed to establish connection to the event+metrics exporter agent. Events and metrics will not be exported. Exporter agent status: RpcError: Running out of retries to initialize the metrics agent. rpc_code: 14
+[2026-06-27 22:21:41,040 E 3243735 3244356] core_worker_process.cc:863: Failed to establish connection to the metrics exporter agent. Metrics will not be exported. Exporter agent status: RpcError: Running out of retries to initialize the metrics agent. rpc_code: 14
+[36m(RolloutWorker pid=3244360)[0m [2026-06-27 22:21:40,980 E 3244360 3244795] core_worker_process.cc:863: Failed to establish connection to the metrics exporter agent. Metrics will not be exported. Exporter agent status: RpcError: Running out of retries to initialize the metrics agent. rpc_code: 14
+[36m(pid=3244371)[0m [2026-06-27 22:21:41,006 E 3244371 3245136] core_worker_process.cc:863: Failed to establish connection to the metrics exporter agent. Metrics will not be exported. Exporter agent status: RpcError: Running out of retries to initialize the metrics agent. rpc_code: 14[32m [repeated 19x across cluster] (Ray deduplicates logs by default. Set RAY_DEDUP_LOGS=0 to disable log deduplication, or see https://docs.ray.io/en/master/ray-observability/user-guides/configure-logging.html#log-deduplication for more options.)[0m
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1782602060.065729 3243857 chttp2_transport.cc:1182] ipv4:172.26.21.114:43155: Got goaway [2] err=UNAVAILABLE:GOAWAY received; Error code: 2; Debug Text: Cancelling all calls {grpc_status:14, http2_error:2, created_time:"2026-06-28T08:14:20.065726074+09:00"}
+Closing ray instance
+[seed=1] finished
