@@ -1,0 +1,37 @@
+{
+  "round_note": "At 8M, const0.01 has the strongest meanMC but reward dipped, while 0.015 has better reward/calibration but mixed meanMC; continue conservatively with holds past the 10M milestone rather than increasing yet.",
+  "candidates": [
+    {
+      "name": "const001_8m",
+      "start_checkpoint": "/home/user/hoshino/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/randT_replayHJB_5Mto10M/round_002/const001_7m/train/0627_0304_const001_7m_seed_1/ckpt-8000000",
+      "schedule_initial": [
+        1.0,
+        0.01,
+        0.01
+      ],
+      "schedule_final": [
+        1.0,
+        0.01,
+        0.01
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05
+    },
+    {
+      "name": "const0015_8m",
+      "start_checkpoint": "/home/user/hoshino/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/randT_replayHJB_5Mto10M/round_002/ramp001to0015/train/0627_0304_ramp001to0015_seed_1/ckpt-8000000",
+      "schedule_initial": [
+        1.0,
+        0.015,
+        0.015
+      ],
+      "schedule_final": [
+        1.0,
+        0.015,
+        0.015
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05
+    }
+  ]
+}

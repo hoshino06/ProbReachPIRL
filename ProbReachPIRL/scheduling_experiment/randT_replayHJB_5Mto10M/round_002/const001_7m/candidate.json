@@ -1,0 +1,16 @@
+{
+  "name": "const001_7m",
+  "start_checkpoint": "/home/user/hoshino/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/randT_replayHJB_5Mto10M/round_001/const001_6m/train/0626_1255_const001_6m_seed_1/ckpt-7000000",
+  "schedule_initial": [
+    1.0,
+    0.01,
+    0.01
+  ],
+  "schedule_final": [
+    1.0,
+    0.01,
+    0.01
+  ],
+  "schedule_center": 500000,
+  "schedule_sharpness": 1e-05
+}

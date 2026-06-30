@@ -1,0 +1,16 @@
+{
+  "name": "ramp001to00125_9m",
+  "start_checkpoint": "/home/user/hoshino/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/randT_replayHJB_5Mto10M/round_003/const001_8m/train/0627_1730_const001_8m_seed_1/ckpt-9000000",
+  "schedule_initial": [
+    1.0,
+    0.01,
+    0.01
+  ],
+  "schedule_final": [
+    1.0,
+    0.0125,
+    0.0125
+  ],
+  "schedule_center": 500000,
+  "schedule_sharpness": 1e-05
+}

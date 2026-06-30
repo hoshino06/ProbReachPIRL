@@ -1,0 +1,37 @@
+{
+  "round_note": "Continue from safe 6M ramp0to001; 0.05 collapsed reward/MC, so hold 0.01 and test only a small 0.02 step.",
+  "candidates": [
+    {
+      "name": "const001_6m",
+      "start_checkpoint": "/home/user/hoshino/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/randT_replayHJB_5Mto10M/round_000/ramp0to001/train/0625_1832_ramp0to001_seed_1/ckpt-6000000",
+      "schedule_initial": [
+        1.0,
+        0.01,
+        0.01
+      ],
+      "schedule_final": [
+        1.0,
+        0.01,
+        0.01
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05
+    },
+    {
+      "name": "ramp001to002",
+      "start_checkpoint": "/home/user/hoshino/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/randT_replayHJB_5Mto10M/round_000/ramp0to001/train/0625_1832_ramp0to001_seed_1/ckpt-6000000",
+      "schedule_initial": [
+        1.0,
+        0.01,
+        0.01
+      ],
+      "schedule_final": [
+        1.0,
+        0.02,
+        0.02
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05
+    }
+  ]
+}
