@@ -1,0 +1,37 @@
+{
+  "round_note": "Round 001 reward fell below the 0.20 safety floor for both branches, so do not branch from those 7M checkpoints. Restart from the last safe scheduling checkpoint at 6M and reduce weights to test reward recovery before any further increase toward the 10M milestone.",
+  "candidates": [
+    {
+      "name": "backoff0005",
+      "start_checkpoint": "scheduling_experiment/fixed2randT_replayHJB_5Mto10M_restart/round_000/ramp0to0001/train/0626_1710_ramp0to0001_seed_1/ckpt-6000000",
+      "schedule_initial": [
+        1.0,
+        0.001,
+        0.001
+      ],
+      "schedule_final": [
+        1.0,
+        0.0005,
+        0.0005
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05
+    },
+    {
+      "name": "recover0000",
+      "start_checkpoint": "scheduling_experiment/fixed2randT_replayHJB_5Mto10M_restart/round_000/ramp0to0001/train/0626_1710_ramp0to0001_seed_1/ckpt-6000000",
+      "schedule_initial": [
+        1.0,
+        0.001,
+        0.001
+      ],
+      "schedule_final": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05
+    }
+  ]
+}

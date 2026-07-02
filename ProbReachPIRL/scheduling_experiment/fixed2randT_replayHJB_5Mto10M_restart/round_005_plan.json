@@ -1,0 +1,37 @@
+{
+  "round_note": "Round 4 randT control is the only safe checkpoint with reward 0.22 and stable MC, so continue it beyond 6M. The 0.0001 restart fell below the 0.20 safety threshold, so the PIRL branch uses a smaller, slower 0.00005 ramp from the safe randT checkpoint rather than increasing weights.",
+  "candidates": [
+    {
+      "name": "contRandT0",
+      "start_checkpoint": "scheduling_experiment/fixed2randT_replayHJB_5Mto10M_restart/round_004/randTctrlR4/train/0628_0825_randTctrlR4_seed_1/ckpt-6000000",
+      "schedule_initial": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "schedule_final": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05
+    },
+    {
+      "name": "slow00005",
+      "start_checkpoint": "scheduling_experiment/fixed2randT_replayHJB_5Mto10M_restart/round_004/randTctrlR4/train/0628_0825_randTctrlR4_seed_1/ckpt-6000000",
+      "schedule_initial": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "schedule_final": [
+        1.0,
+        0.00005,
+        0.00005
+      ],
+      "schedule_center": 750000,
+      "schedule_sharpness": 5e-06
+    }
+  ]
+}

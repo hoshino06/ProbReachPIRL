@@ -1,0 +1,47 @@
+{
+  "name": "recover0000",
+  "start_checkpoint": "scheduling_experiment/fixed2randT_replayHJB_5Mto10M_restart/round_000/ramp0to0001/train/0626_1710_ramp0to0001_seed_1/ckpt-6000000",
+  "start_itr": 6000000,
+  "checkpoint": "/home/ubuntu-root/hoshino/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_replayHJB_5Mto10M_restart/round_002/recover0000/train/0627_1217_recover0000_seed_1/ckpt-7000000",
+  "target_updates": 7000000,
+  "candidate": {
+    "name": "recover0000",
+    "start_checkpoint": "scheduling_experiment/fixed2randT_replayHJB_5Mto10M_restart/round_000/ramp0to0001/train/0626_1710_ramp0to0001_seed_1/ckpt-6000000",
+    "schedule_initial": [
+      1.0,
+      0.001,
+      0.001
+    ],
+    "schedule_final": [
+      1.0,
+      0.0,
+      0.0
+    ],
+    "schedule_center": 500000,
+    "schedule_sharpness": 1e-05
+  },
+  "mc_metrics": {
+    "beta_r": {
+      "mean_abs_mc_v": 0.1271,
+      "max_abs_mc_v": 0.9982,
+      "mean_mc": 0.412,
+      "mean_v": 0.2851
+    },
+    "ey_epsi": {
+      "mean_abs_mc_v": 0.119,
+      "max_abs_mc_v": 0.8754,
+      "mean_mc": 0.5982,
+      "mean_v": 0.4826
+    }
+  },
+  "tensorboard_last": {
+    "RL/Average Reward": 0.15000000596046448,
+    "Loss/RL": 0.003835519077256322,
+    "Loss/HJB": 0.6718581914901733,
+    "Loss/HJB_replay": 1.7724525928497314,
+    "Loss/BDR": 0.31113511323928833,
+    "Weights/RL": 1.0,
+    "Weights/HJB": 0.0,
+    "Weights/BDR": 0.0
+  }
+}

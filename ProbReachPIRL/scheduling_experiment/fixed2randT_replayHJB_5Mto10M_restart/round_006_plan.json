@@ -1,0 +1,37 @@
+{
+  "round_note": "Round 005 made the 6M randT control unsafe by 7M, so do not branch from either 7M checkpoint. Restart from the fixedT TD3 5M baseline: repeat the zero-weight randT control to check whether the round 004 safe reward is reproducible, and try a smaller slower 0.000025 replay HJB/BDR ramp because 0.0001 was still below the 0.20 safety floor.",
+  "candidates": [
+    {
+      "name": "randTctrlR6",
+      "start_checkpoint": "logs/drift/td3_T01/up05M_scale10_mix334/ckpt-5000000",
+      "schedule_initial": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "schedule_final": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05
+    },
+    {
+      "name": "restart000025",
+      "start_checkpoint": "logs/drift/td3_T01/up05M_scale10_mix334/ckpt-5000000",
+      "schedule_initial": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "schedule_final": [
+        1.0,
+        0.000025,
+        0.000025
+      ],
+      "schedule_center": 750000,
+      "schedule_sharpness": 5e-06
+    }
+  ]
+}

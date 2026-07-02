@@ -1,0 +1,88 @@
+# PIRL scheduling experiment config for fixed2randT_replayHJB restart.
+# Start from a fixedT TD3 checkpoint, switch reset T to random during
+# scheduling, and sample HJB points from the replay buffer.
+# This restart config treats reward collapse as unrecoverable and forces the
+# advisor to restart from a safe checkpoint instead of continuing collapsed runs.
+# Run with:
+#   conda activate pirl
+#   python scheduling_experiment/run_scheduling_experiment.py --config scheduling_experiment/fixed2randT_replayHJB_5Mto10M_restart.toml
+
+[experiment]
+baseline_checkpoint = "logs/drift/td3_T01/up05M_scale10_mix334/ckpt-5000000"
+rounds = 8
+updates_per_round = 1_000_000
+target_total_updates = 10_000_000
+max_parallel_candidates = 2
+learner_num_gpus = 0.16
+advisor_command = "codex exec"
+
+# One checkpoint per continuation block and lighter TensorBoard logs.
+checkpoint_freq = 1_000_000
+log_freq = 5_000
+
+[training_env]
+CASE = "drift"
+METHOD = "scheduling"
+SEEDS = "1"
+NUM_WORKERS = 2
+
+DRIFT_DT = 0.1
+DRIFT_RESET_SCALE = 1.0
+DRIFT_RESET_MODE = "mixture"
+DRIFT_RESET_MIXTURE_PROBS = "0.3,0.3,0.4" # beta_r, ey_epsi, full
+DRIFT_RESET_T_MODE = "random"
+DRIFT_RESET_T_MIN = 0.0
+DRIFT_RESET_T_MAX = 5.0
+
+INITIAL_EXPLORATION_POLICY = "policy"
+PINN_SAMPLE_MODE = "replay"
+PINN_REPLAY_FRACTION = 1.0
+PINN_REPLAY_JITTER = 0.0
+
+HJB_LAPLACIAN_MODE = "loop"
+SCHEDULE_TIME_BASE = "local"
+
+[evaluation]
+T = 5.0
+num_grid = 31
+num_rollouts = 16
+device = "cuda"
+
+[advisor_context]
+manual_notes = """
+- This is a restart after fixed2randT_replayHJB_5Mto10M collapsed reward in round0/round1.
+- The fixedT TD3 5M baseline had RL/Average Reward around 0.44 at the end. Treat reward below 0.20 as unsafe and below 0.10 as collapsed, even if HJB/BDR or MC metrics improve.
+- Do not continue, back off from, or branch from collapsed checkpoints. If all candidates in a round are unsafe, restart from the baseline checkpoint or the last checkpoint with reward >= 0.20.
+- Do not increase HJB/BDR above 0.005 until reward stays at least 0.30 for a full round. Prefer smaller increases such as 0.001 -> 0.002 -> 0.005.
+- Keep one randT reset control with HJB/BDR=0.0 until the reward effect of switching fixedT to randT is understood.
+- Prioritize reward preservation over reducing HJB loss. MC reachability improvements are not useful if reward collapses.
+"""
+reference_paths = [
+  "logs/drift/README.md",
+  "logs/drift/scheduling_randT_replayHJB",
+  "logs/drift/scheduling_fixed2randT_uniformHJB",
+  "logs/drift/scheduling_fixedT_replayHJB",
+  "logs/drift/scheduling_fixedT_uniformHJB",
+  "logs/drift/td3_T01_randT/",
+  "logs/drift/td3_T01/",
+  "scheduling_experiment/fixed2randT_replayHJB_5Mto10M",
+]
+
+[initial_plan]
+round_note = "Restart from the fixedT TD3 5M checkpoint with a randT-only control and a very small replay-HJB/BDR ramp. The previous 0.01 and 0.05 ramps collapsed reward."
+
+[[initial_plan.candidates]]
+name = "randTonly"
+start_checkpoint = ""
+schedule_initial = [1.0, 0.0, 0.0]
+schedule_final = [1.0, 0.0, 0.0]
+schedule_center = 500_000
+schedule_sharpness = 0.00001
+
+[[initial_plan.candidates]]
+name = "ramp0to0001"
+start_checkpoint = ""
+schedule_initial = [1.0, 0.0, 0.0]
+schedule_final = [1.0, 0.001, 0.001]
+schedule_center = 500_000
+schedule_sharpness = 0.00001

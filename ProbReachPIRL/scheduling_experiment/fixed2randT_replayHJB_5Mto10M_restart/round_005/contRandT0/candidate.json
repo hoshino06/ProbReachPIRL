@@ -1,0 +1,16 @@
+{
+  "name": "contRandT0",
+  "start_checkpoint": "scheduling_experiment/fixed2randT_replayHJB_5Mto10M_restart/round_004/randTctrlR4/train/0628_0825_randTctrlR4_seed_1/ckpt-6000000",
+  "schedule_initial": [
+    1.0,
+    0.0,
+    0.0
+  ],
+  "schedule_final": [
+    1.0,
+    0.0,
+    0.0
+  ],
+  "schedule_center": 500000,
+  "schedule_sharpness": 1e-05
+}

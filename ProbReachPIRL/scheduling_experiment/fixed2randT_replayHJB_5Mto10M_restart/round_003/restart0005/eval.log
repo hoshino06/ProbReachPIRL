@@ -1,0 +1,14 @@
+Saved: /home/ubuntu-root/hoshino/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_replayHJB_5Mto10M_restart/round_003/restart0005/eval/mc_vs_value_contours.png
+Saved: /home/ubuntu-root/hoshino/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_replayHJB_5Mto10M_restart/round_003/restart0005/eval/mc_vs_value_contours.pdf
+--------------------------------------------
+checkpoint: /home/ubuntu-root/hoshino/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_replayHJB_5Mto10M_restart/round_003/restart0005/train/0627_2221_restart0005_seed_1/ckpt-6000000
+out_dir:    /home/ubuntu-root/hoshino/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_replayHJB_5Mto10M_restart/round_003/restart0005/eval
+T:          5
+mu:         0.5500
+grid:       31 x 31
+rollouts:   16
+mode:       stochastic
+ey_max:     2
+beta_r: mean|MC-V|=0.1119, max|MC-V|=0.9980, mean MC=0.3954, mean V=0.2876
+ey_epsi: mean|MC-V|=0.1044, max|MC-V|=0.8605, mean MC=0.5762, mean V=0.4862
+--------------------------------------------
