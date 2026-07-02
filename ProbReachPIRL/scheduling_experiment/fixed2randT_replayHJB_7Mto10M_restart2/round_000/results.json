@@ -1,0 +1,96 @@
+[
+  {
+    "name": "hold0001_R1",
+    "start_checkpoint": "scheduling_experiment/fixed2randT_replayHJB_5Mto10M_restart/round_001/hold0001/train/0627_0211_hold0001_seed_1/ckpt-7000000",
+    "start_itr": 7000000,
+    "checkpoint": "/home/ubuntu-root/hoshino/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_replayHJB_7Mto10M_restart2/round_000/hold0001_R1/train/0630_0945_hold0001_R1_seed_1/ckpt-8000000",
+    "target_updates": 8000000,
+    "candidate": {
+      "name": "hold0001_R1",
+      "start_checkpoint": "scheduling_experiment/fixed2randT_replayHJB_5Mto10M_restart/round_001/hold0001/train/0627_0211_hold0001_seed_1/ckpt-7000000",
+      "schedule_initial": [
+        1.0,
+        0.001,
+        0.001
+      ],
+      "schedule_final": [
+        1.0,
+        0.001,
+        0.001
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05
+    },
+    "mc_metrics": {
+      "beta_r": {
+        "mean_abs_mc_v": 0.1188,
+        "max_abs_mc_v": 0.9959,
+        "mean_mc": 0.4137,
+        "mean_v": 0.2953
+      },
+      "ey_epsi": {
+        "mean_abs_mc_v": 0.1021,
+        "max_abs_mc_v": 0.872,
+        "mean_mc": 0.588,
+        "mean_v": 0.4916
+      }
+    },
+    "tensorboard_last": {
+      "RL/Average Reward": 0.1599999964237213,
+      "Loss/RL": 0.008215537294745445,
+      "Loss/HJB": 0.7740164399147034,
+      "Loss/HJB_replay": 0.35115426778793335,
+      "Loss/BDR": 0.11174584180116653,
+      "Weights/RL": 1.0,
+      "Weights/HJB": 0.0010000000474974513,
+      "Weights/BDR": 0.0010000000474974513
+    }
+  },
+  {
+    "name": "hold0002_R1",
+    "start_checkpoint": "scheduling_experiment/fixed2randT_replayHJB_5Mto10M_restart/round_001/cont0001to0002/train/0627_0211_cont0001to0002_seed_1/ckpt-7000000",
+    "start_itr": 7000000,
+    "checkpoint": "/home/ubuntu-root/hoshino/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_replayHJB_7Mto10M_restart2/round_000/hold0002_R1/train/0630_0945_hold0002_R1_seed_1/ckpt-8000000",
+    "target_updates": 8000000,
+    "candidate": {
+      "name": "hold0002_R1",
+      "start_checkpoint": "scheduling_experiment/fixed2randT_replayHJB_5Mto10M_restart/round_001/cont0001to0002/train/0627_0211_cont0001to0002_seed_1/ckpt-7000000",
+      "schedule_initial": [
+        1.0,
+        0.002,
+        0.002
+      ],
+      "schedule_final": [
+        1.0,
+        0.002,
+        0.002
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05
+    },
+    "mc_metrics": {
+      "beta_r": {
+        "mean_abs_mc_v": 0.1217,
+        "max_abs_mc_v": 0.9961,
+        "mean_mc": 0.4112,
+        "mean_v": 0.2896
+      },
+      "ey_epsi": {
+        "mean_abs_mc_v": 0.0938,
+        "max_abs_mc_v": 0.768,
+        "mean_mc": 0.5781,
+        "mean_v": 0.4902
+      }
+    },
+    "tensorboard_last": {
+      "RL/Average Reward": 0.2199999988079071,
+      "Loss/RL": 0.007662197574973106,
+      "Loss/HJB": 0.8495813608169556,
+      "Loss/HJB_replay": 0.2290845811367035,
+      "Loss/BDR": 0.11006398499011993,
+      "Weights/RL": 1.0,
+      "Weights/HJB": 0.0020000000949949026,
+      "Weights/BDR": 0.0020000000949949026
+    }
+  }
+]

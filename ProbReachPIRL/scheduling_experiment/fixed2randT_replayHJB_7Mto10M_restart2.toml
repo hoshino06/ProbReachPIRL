@@ -1,0 +1,84 @@
+# PIRL scheduling experiment config for fixed2randT_replayHJB restart2.
+# Continue from the promising round_001 checkpoints of the restart experiment.
+# Run with:
+#   conda activate pirl
+#   python scheduling_experiment/run_scheduling_experiment.py --config scheduling_experiment/fixed2randT_replayHJB_7Mto10M_restart2.toml
+
+[experiment]
+baseline_checkpoint = "logs/drift/td3_T01/up05M_scale10_mix334/ckpt-5000000"
+rounds = 5
+updates_per_round = 1_000_000
+target_total_updates = 10_000_000
+max_parallel_candidates = 2
+learner_num_gpus = 0.16
+advisor_command = "codex exec"
+
+# One checkpoint per continuation block and lighter TensorBoard logs.
+checkpoint_freq = 1_000_000
+log_freq = 5_000
+
+[training_env]
+CASE = "drift"
+METHOD = "scheduling"
+SEEDS = "1"
+NUM_WORKERS = 2
+
+DRIFT_DT = 0.1
+DRIFT_RESET_SCALE = 1.0
+DRIFT_RESET_MODE = "mixture"
+DRIFT_RESET_MIXTURE_PROBS = "0.3,0.3,0.4" # beta_r, ey_epsi, full
+DRIFT_RESET_T_MODE = "random"
+DRIFT_RESET_T_MIN = 0.0
+DRIFT_RESET_T_MAX = 5.0
+
+INITIAL_EXPLORATION_POLICY = "policy"
+PINN_SAMPLE_MODE = "replay"
+PINN_REPLAY_FRACTION = 1.0
+PINN_REPLAY_JITTER = 0.0
+
+HJB_LAPLACIAN_MODE = "loop"
+SCHEDULE_TIME_BASE = "local"
+
+[evaluation]
+T = 5.0
+num_grid = 31
+num_rollouts = 16
+device = "cuda"
+
+[advisor_context]
+manual_notes = """
+- This restart2 continues from fixed2randT_replayHJB_5Mto10M_restart round_001, because TensorBoard smoothed reward suggested those branches were more promising than the final raw reward alone indicated.
+- Reward is noisy. Do not reject a checkpoint based only on the final raw reward value.
+- Avoid fixed absolute reward thresholds unless they are justified by the current experiment. Compare candidates relative to nearby runs under the same reset and sampling setup.
+- Prefer continuations that keep reward comparable while improving MC calibration. Increase HJB/BDR gradually when the reward trend remains acceptable.
+"""
+reference_paths = [
+  "logs/drift/README.md",
+  "logs/drift/scheduling_randT_replayHJB",
+  "logs/drift/scheduling_fixed2randT_uniformHJB",
+  "logs/drift/scheduling_fixedT_replayHJB",
+  "logs/drift/scheduling_fixedT_uniformHJB",
+  "logs/drift/td3_T01_randT/",
+  "logs/drift/td3_T01/",
+  "scheduling_experiment/fixed2randT_replayHJB_5Mto10M",
+  "scheduling_experiment/fixed2randT_replayHJB_5Mto10M_restart",
+]
+
+[initial_plan]
+round_note = "Continue the two restart round_001 branches that looked promising under smoothed reward: hold 0.001 and hold 0.002 for one more 1M-update block before deciding whether to increase or back off."
+
+[[initial_plan.candidates]]
+name = "hold0001_R1"
+start_checkpoint = "scheduling_experiment/fixed2randT_replayHJB_5Mto10M_restart/round_001/hold0001/train/0627_0211_hold0001_seed_1/ckpt-7000000"
+schedule_initial = [1.0, 0.001, 0.001]
+schedule_final = [1.0, 0.001, 0.001]
+schedule_center = 500_000
+schedule_sharpness = 0.00001
+
+[[initial_plan.candidates]]
+name = "hold0002_R1"
+start_checkpoint = "scheduling_experiment/fixed2randT_replayHJB_5Mto10M_restart/round_001/cont0001to0002/train/0627_0211_cont0001to0002_seed_1/ckpt-7000000"
+schedule_initial = [1.0, 0.002, 0.002]
+schedule_final = [1.0, 0.002, 0.002]
+schedule_center = 500_000
+schedule_sharpness = 0.00001

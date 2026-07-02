@@ -1,0 +1,16 @@
+{
+  "name": "hold0002_R1",
+  "start_checkpoint": "scheduling_experiment/fixed2randT_replayHJB_5Mto10M_restart/round_001/cont0001to0002/train/0627_0211_cont0001to0002_seed_1/ckpt-7000000",
+  "schedule_initial": [
+    1.0,
+    0.002,
+    0.002
+  ],
+  "schedule_final": [
+    1.0,
+    0.002,
+    0.002
+  ],
+  "schedule_center": 500000,
+  "schedule_sharpness": 1e-05
+}

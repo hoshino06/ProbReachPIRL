@@ -1,0 +1,37 @@
+{
+  "round_note": "Continue beyond the 10M milestone from hold0015_R4, the safest 11M checkpoint: MC stayed stable and calibration improved versus 10M, while the 0.001625 ramp had slightly worse reward, meanMC, and calibration. Hold 0.0015 as the safe branch and test only a smaller micro-ramp to 0.0015625.",
+  "candidates": [
+    {
+      "name": "hold0015_R5",
+      "start_checkpoint": "scheduling_experiment/fixed2randT_replayHJB_7Mto10M_restart2/round_003/hold0015_R4/train/0701_1619_hold0015_R4_seed_1/ckpt-11000000",
+      "schedule_initial": [
+        1.0,
+        0.0015,
+        0.0015
+      ],
+      "schedule_final": [
+        1.0,
+        0.0015,
+        0.0015
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05
+    },
+    {
+      "name": "ramp0015625_R5",
+      "start_checkpoint": "scheduling_experiment/fixed2randT_replayHJB_7Mto10M_restart2/round_003/hold0015_R4/train/0701_1619_hold0015_R4_seed_1/ckpt-11000000",
+      "schedule_initial": [
+        1.0,
+        0.0015,
+        0.0015
+      ],
+      "schedule_final": [
+        1.0,
+        0.0015625,
+        0.0015625
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05
+    }
+  ]
+}

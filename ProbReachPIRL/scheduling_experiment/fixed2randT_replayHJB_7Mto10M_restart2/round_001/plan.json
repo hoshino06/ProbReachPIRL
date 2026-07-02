@@ -1,0 +1,37 @@
+{
+  "round_note": "Continue from stable 8M scheduling checkpoints: hold the safer 0.001 branch, and back off the higher-reward 0.002 branch slightly because mean MC slipped while calibration improved.",
+  "candidates": [
+    {
+      "name": "hold0001_R2",
+      "start_checkpoint": "scheduling_experiment/fixed2randT_replayHJB_7Mto10M_restart2/round_000/hold0001_R1/train/0630_0945_hold0001_R1_seed_1/ckpt-8000000",
+      "schedule_initial": [
+        1.0,
+        0.001,
+        0.001
+      ],
+      "schedule_final": [
+        1.0,
+        0.001,
+        0.001
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05
+    },
+    {
+      "name": "back002to0015_R2",
+      "start_checkpoint": "scheduling_experiment/fixed2randT_replayHJB_7Mto10M_restart2/round_000/hold0002_R1/train/0630_0945_hold0002_R1_seed_1/ckpt-8000000",
+      "schedule_initial": [
+        1.0,
+        0.002,
+        0.002
+      ],
+      "schedule_final": [
+        1.0,
+        0.0015,
+        0.0015
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05
+    }
+  ]
+}
