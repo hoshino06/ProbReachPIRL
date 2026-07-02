@@ -1,0 +1,81 @@
+# PIRL scheduling experiment config for fixed2randT_uniformHJB value calibration.
+# Start from the 7M high-MC uniform-HJB checkpoint and test whether small HJB
+# with stronger BDR can raise mean V without losing MC reachability. The 10M
+# update count is a target milestone; later rounds may continue beyond it or
+# branch back to earlier good checkpoints.
+# Run with:
+#   conda activate pirl
+#   python scheduling_experiment/run_scheduling_experiment.py --config scheduling_experiment/fixed2randT_uniformHJB_7Mto10M_valueBDR.toml
+
+[experiment]
+baseline_checkpoint = "scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_003/hold0025_from6M/train/0627_1812_hold0025_from6M_seed_1/ckpt-7000000"
+rounds = 5
+updates_per_round = 1_000_000
+target_total_updates = 10_000_000
+max_parallel_candidates = 2
+learner_num_gpus = 0.16
+advisor_command = "codex exec"
+
+# One checkpoint per continuation block and lighter TensorBoard logs.
+checkpoint_freq = 1_000_000
+log_freq = 5_000
+
+[training_env]
+CASE = "drift"
+METHOD = "scheduling"
+SEEDS = "1"
+NUM_WORKERS = 2
+
+DRIFT_DT = 0.1
+DRIFT_RESET_SCALE = 1.0
+DRIFT_RESET_MODE = "mixture"
+DRIFT_RESET_MIXTURE_PROBS = "0.3,0.3,0.4" # beta_r, ey_epsi, full
+DRIFT_RESET_T_MODE = "random"
+DRIFT_RESET_T_MIN = 0.0
+DRIFT_RESET_T_MAX = 5.0
+
+INITIAL_EXPLORATION_POLICY = "policy"
+PINN_SAMPLE_MODE = "uniform"
+PINN_REPLAY_FRACTION = 1.0
+PINN_REPLAY_JITTER = 0.0
+
+HJB_LAPLACIAN_MODE = "loop"
+SCHEDULE_TIME_BASE = "local"
+
+[evaluation]
+T = 5.0
+num_grid = 31
+num_rollouts = 16
+device = "cuda"
+
+[advisor_context]
+manual_notes = """
+- Goal: increase mean V / reduce mean|MC-V| while preserving the 7M mean MC level.
+- Prefer small HJB with higher BDR; avoid increasing HJB aggressively if mean MC drops.
+- Baseline 7M hold0025_from6M: avg meanMC about 0.487, avg meanV about 0.337, avg mean|MC-V| about 0.154.
+- Treat 10M as a milestone, not a hard stop. If a branch is healthy, continuing beyond 10M within the 5 rounds is acceptable.
+- Branching back to the best 7M/8M/9M checkpoint is acceptable if a later continuation improves mean V but hurts mean MC or calibration.
+"""
+reference_paths = [
+  "scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/all_results.json",
+  "scheduling_experiment/fixed2randT_uniformHJB_5Mto10M.toml",
+]
+
+[initial_plan]
+round_note = "Start from the 7M high-MC uniform-HJB checkpoint and test BDR-heavy calibration schedules."
+
+[[initial_plan.candidates]]
+name = "hjb0025_bdr0035"
+start_checkpoint = ""
+schedule_initial = [1.0, 0.025, 0.025]
+schedule_final = [1.0, 0.025, 0.035]
+schedule_center = 300_000
+schedule_sharpness = 0.000015
+
+[[initial_plan.candidates]]
+name = "hjb002_bdr004"
+start_checkpoint = ""
+schedule_initial = [1.0, 0.025, 0.025]
+schedule_final = [1.0, 0.020, 0.040]
+schedule_center = 300_000
+schedule_sharpness = 0.000015
