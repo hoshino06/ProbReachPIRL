@@ -1,0 +1,16 @@
+{
+  "name": "slow0025to003",
+  "start_checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_003/hold0025_from6M/train/0627_1812_hold0025_from6M_seed_1/ckpt-7000000",
+  "schedule_initial": [
+    1.0,
+    0.025,
+    0.025
+  ],
+  "schedule_final": [
+    1.0,
+    0.03,
+    0.03
+  ],
+  "schedule_center": 500000,
+  "schedule_sharpness": 1e-05
+}

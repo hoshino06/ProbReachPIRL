@@ -1,0 +1,96 @@
+[
+  {
+    "name": "ramp0to001",
+    "start_checkpoint": "logs/drift/td3_T01/up05M_scale10_mix334/ckpt-5000000",
+    "start_itr": 5000000,
+    "checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_000/ramp0to001/train/0625_1015_ramp0to001_seed_1/ckpt-6000000",
+    "target_updates": 6000000,
+    "candidate": {
+      "name": "ramp0to001",
+      "start_checkpoint": "logs/drift/td3_T01/up05M_scale10_mix334/ckpt-5000000",
+      "schedule_initial": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "schedule_final": [
+        1.0,
+        0.01,
+        0.01
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05
+    },
+    "mc_metrics": {
+      "beta_r": {
+        "mean_abs_mc_v": 0.1695,
+        "max_abs_mc_v": 0.9974,
+        "mean_mc": 0.4047,
+        "mean_v": 0.2359
+      },
+      "ey_epsi": {
+        "mean_abs_mc_v": 0.1675,
+        "max_abs_mc_v": 0.8948,
+        "mean_mc": 0.5756,
+        "mean_v": 0.4117
+      }
+    },
+    "tensorboard_last": {
+      "RL/Average Reward": 0.12999999523162842,
+      "Loss/RL": 0.004678318277001381,
+      "Loss/HJB": 0.05425982177257538,
+      "Loss/HJB_replay": null,
+      "Loss/BDR": 0.011371891014277935,
+      "Weights/RL": 1.0,
+      "Weights/HJB": 0.009999999776482582,
+      "Weights/BDR": 0.009999999776482582
+    }
+  },
+  {
+    "name": "ramp0to005",
+    "start_checkpoint": "logs/drift/td3_T01/up05M_scale10_mix334/ckpt-5000000",
+    "start_itr": 5000000,
+    "checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_000/ramp0to005/train/0625_1015_ramp0to005_seed_1/ckpt-6000000",
+    "target_updates": 6000000,
+    "candidate": {
+      "name": "ramp0to005",
+      "start_checkpoint": "logs/drift/td3_T01/up05M_scale10_mix334/ckpt-5000000",
+      "schedule_initial": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "schedule_final": [
+        1.0,
+        0.05,
+        0.05
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05
+    },
+    "mc_metrics": {
+      "beta_r": {
+        "mean_abs_mc_v": 0.1608,
+        "max_abs_mc_v": 0.9852,
+        "mean_mc": 0.3743,
+        "mean_v": 0.2151
+      },
+      "ey_epsi": {
+        "mean_abs_mc_v": 0.1633,
+        "max_abs_mc_v": 0.8537,
+        "mean_mc": 0.5672,
+        "mean_v": 0.4078
+      }
+    },
+    "tensorboard_last": {
+      "RL/Average Reward": 0.15000000596046448,
+      "Loss/RL": 0.005194326862692833,
+      "Loss/HJB": 0.007039847318083048,
+      "Loss/HJB_replay": null,
+      "Loss/BDR": 0.011740513145923615,
+      "Weights/RL": 1.0,
+      "Weights/HJB": 0.05000000074505806,
+      "Weights/BDR": 0.05000000074505806
+    }
+  }
+]

@@ -1,0 +1,96 @@
+[
+  {
+    "name": "backoff005to0025_from7M",
+    "start_checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_001/hold005_from6M/train/0626_0905_hold005_from6M_seed_1/ckpt-7000000",
+    "start_itr": 7000000,
+    "checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_002/backoff005to0025_from7M/train/0627_0137_backoff005to0025_from7M_seed_1/ckpt-8000000",
+    "target_updates": 8000000,
+    "candidate": {
+      "name": "backoff005to0025_from7M",
+      "start_checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_001/hold005_from6M/train/0626_0905_hold005_from6M_seed_1/ckpt-7000000",
+      "schedule_initial": [
+        1.0,
+        0.05,
+        0.05
+      ],
+      "schedule_final": [
+        1.0,
+        0.025,
+        0.025
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05
+    },
+    "mc_metrics": {
+      "beta_r": {
+        "mean_abs_mc_v": 0.2233,
+        "max_abs_mc_v": 0.9992,
+        "mean_mc": 0.3967,
+        "mean_v": 0.1739
+      },
+      "ey_epsi": {
+        "mean_abs_mc_v": 0.1964,
+        "max_abs_mc_v": 0.9751,
+        "mean_mc": 0.5589,
+        "mean_v": 0.3656
+      }
+    },
+    "tensorboard_last": {
+      "RL/Average Reward": 0.15000000596046448,
+      "Loss/RL": 0.009233697317540646,
+      "Loss/HJB": 0.00929327867925167,
+      "Loss/HJB_replay": null,
+      "Loss/BDR": 0.023045208305120468,
+      "Weights/RL": 1.0,
+      "Weights/HJB": 0.02500000037252903,
+      "Weights/BDR": 0.02500000037252903
+    }
+  },
+  {
+    "name": "restart_ramp0to0025",
+    "start_checkpoint": "logs/drift/td3_T01/up05M_scale10_mix334/ckpt-5000000",
+    "start_itr": 5000000,
+    "checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_002/restart_ramp0to0025/train/0627_0137_restart_ramp0to0025_seed_1/ckpt-6000000",
+    "target_updates": 6000000,
+    "candidate": {
+      "name": "restart_ramp0to0025",
+      "start_checkpoint": "logs/drift/td3_T01/up05M_scale10_mix334/ckpt-5000000",
+      "schedule_initial": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "schedule_final": [
+        1.0,
+        0.025,
+        0.025
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05
+    },
+    "mc_metrics": {
+      "beta_r": {
+        "mean_abs_mc_v": 0.1242,
+        "max_abs_mc_v": 0.9967,
+        "mean_mc": 0.3556,
+        "mean_v": 0.2408
+      },
+      "ey_epsi": {
+        "mean_abs_mc_v": 0.1311,
+        "max_abs_mc_v": 0.9197,
+        "mean_mc": 0.5051,
+        "mean_v": 0.4246
+      }
+    },
+    "tensorboard_last": {
+      "RL/Average Reward": 0.1599999964237213,
+      "Loss/RL": 0.004878987092524767,
+      "Loss/HJB": 0.013665672391653061,
+      "Loss/HJB_replay": null,
+      "Loss/BDR": 0.018612805753946304,
+      "Weights/RL": 1.0,
+      "Weights/HJB": 0.02500000037252903,
+      "Weights/BDR": 0.02500000037252903
+    }
+  }
+]

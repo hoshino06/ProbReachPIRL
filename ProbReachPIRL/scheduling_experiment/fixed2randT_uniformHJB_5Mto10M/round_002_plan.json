@@ -1,0 +1,37 @@
+{
+  "round_note": "Round 001 kept reward mostly stable for hold005 but beta-r calibration worsened, while 0.075 hurt reward. Back off the continued 7M path and include one TD3-restart control at a milder intermediate 0.025 target.",
+  "candidates": [
+    {
+      "name": "backoff005to0025_from7M",
+      "start_checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_001/hold005_from6M/train/0626_0905_hold005_from6M_seed_1/ckpt-7000000",
+      "schedule_initial": [
+        1.0,
+        0.05,
+        0.05
+      ],
+      "schedule_final": [
+        1.0,
+        0.025,
+        0.025
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 0.00001
+    },
+    {
+      "name": "restart_ramp0to0025",
+      "start_checkpoint": "logs/drift/td3_T01/up05M_scale10_mix334/ckpt-5000000",
+      "schedule_initial": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "schedule_final": [
+        1.0,
+        0.025,
+        0.025
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 0.00001
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "name": "hold003_from8M",
+  "start_checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_004/slow0025to003/train/0628_1048_slow0025to003_seed_1/ckpt-8000000",
+  "schedule_initial": [
+    1.0,
+    0.03,
+    0.03
+  ],
+  "schedule_final": [
+    1.0,
+    0.03,
+    0.03
+  ],
+  "schedule_center": 500000,
+  "schedule_sharpness": 1e-05
+}

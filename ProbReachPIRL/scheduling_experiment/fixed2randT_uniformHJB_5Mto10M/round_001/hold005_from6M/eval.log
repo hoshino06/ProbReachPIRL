@@ -1,0 +1,14 @@
+Saved: /home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_001/hold005_from6M/eval/mc_vs_value_contours.png
+Saved: /home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_001/hold005_from6M/eval/mc_vs_value_contours.pdf
+--------------------------------------------
+checkpoint: /home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_001/hold005_from6M/train/0626_0905_hold005_from6M_seed_1/ckpt-7000000
+out_dir:    /home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_001/hold005_from6M/eval
+T:          5
+mu:         0.5500
+grid:       31 x 31
+rollouts:   16
+mode:       stochastic
+ey_max:     2
+beta_r: mean|MC-V|=0.2069, max|MC-V|=0.9986, mean MC=0.3954, mean V=0.1899
+ey_epsi: mean|MC-V|=0.1694, max|MC-V|=0.9691, mean MC=0.5676, mean V=0.4011
+--------------------------------------------

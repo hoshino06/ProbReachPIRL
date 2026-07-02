@@ -1,0 +1,16 @@
+{
+  "name": "restart_ramp0to0025",
+  "start_checkpoint": "logs/drift/td3_T01/up05M_scale10_mix334/ckpt-5000000",
+  "schedule_initial": [
+    1.0,
+    0.0,
+    0.0
+  ],
+  "schedule_final": [
+    1.0,
+    0.025,
+    0.025
+  ],
+  "schedule_center": 500000,
+  "schedule_sharpness": 1e-05
+}

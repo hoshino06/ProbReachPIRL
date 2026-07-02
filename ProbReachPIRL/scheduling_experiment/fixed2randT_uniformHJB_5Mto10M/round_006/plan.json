@@ -1,0 +1,37 @@
+{
+  "round_note": "Write was blocked by the read-only sandbox. Intended plan: continue from slow003to00325 at 9M because reward stayed stable and MC did not collapse; use one hold and one small +0.0025 step for the 10M milestone.",
+  "candidates": [
+    {
+      "name": "hold00325_from9M",
+      "start_checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_005/slow003to00325/train/0629_0341_slow003to00325_seed_1/ckpt-9000000",
+      "schedule_initial": [
+        1.0,
+        0.0325,
+        0.0325
+      ],
+      "schedule_final": [
+        1.0,
+        0.0325,
+        0.0325
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05
+    },
+    {
+      "name": "slow00325to0035",
+      "start_checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_005/slow003to00325/train/0629_0341_slow003to00325_seed_1/ckpt-9000000",
+      "schedule_initial": [
+        1.0,
+        0.0325,
+        0.0325
+      ],
+      "schedule_final": [
+        1.0,
+        0.035,
+        0.035
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05
+    }
+  ]
+}

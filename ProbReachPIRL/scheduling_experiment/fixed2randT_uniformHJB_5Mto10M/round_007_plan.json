@@ -1,0 +1,37 @@
+{
+  "round_note": "10M is treated as a milestone: continue from slow00325to0035 at 10M because reward recovered to 0.19 and MC/calibration stayed stable; test a safe hold plus a small gradual increase beyond 0.035.",
+  "candidates": [
+    {
+      "name": "hold0035_from10M",
+      "start_checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_006/slow00325to0035/train/0629_2018_slow00325to0035_seed_1/ckpt-10000000",
+      "schedule_initial": [
+        1.0,
+        0.035,
+        0.035
+      ],
+      "schedule_final": [
+        1.0,
+        0.035,
+        0.035
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05
+    },
+    {
+      "name": "slow0035to00375",
+      "start_checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_006/slow00325to0035/train/0629_2018_slow00325to0035_seed_1/ckpt-10000000",
+      "schedule_initial": [
+        1.0,
+        0.035,
+        0.035
+      ],
+      "schedule_final": [
+        1.0,
+        0.0375,
+        0.0375
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05
+    }
+  ]
+}

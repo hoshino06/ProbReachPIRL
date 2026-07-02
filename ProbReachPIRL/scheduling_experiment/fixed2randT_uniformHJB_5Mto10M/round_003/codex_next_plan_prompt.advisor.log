@@ -1,0 +1,1535 @@
+Reading additional input from stdin...
+OpenAI Codex v0.142.1
+--------
+workdir: /home/ubuntu/ProbReachPIRL/ProbReachPIRL
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR]
+reasoning effort: none
+reasoning summaries: none
+session id: 019f0dd7-2880-71d1-8ce5-eb5928611cdb
+--------
+user
+You are controlling the next round of PIRL weight scheduling.
+
+Objective:
+- Treat 10000000 total updates as the first milestone, not a hard stop.
+- By that milestone, outperform the TD3 baseline from logs/drift/td3_T01/up05M_scale10_mix334/ckpt-5000000.
+- If reward and MC reachability remain stable, keep progressing beyond the milestone.
+- Keep final reward no worse than TD3 while reducing value calibration error mean|MC-V|.
+
+Output:
+- Write ONLY valid JSON to: /home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_004_plan.json
+- Return exactly 2 candidate(s).
+
+Schema:
+{
+  "round_note": "brief rationale",
+  "candidates": [
+    {
+      "name": "short_unique_name",
+      "start_checkpoint": "path/to/ckpt-N",
+      "schedule_initial": [1.0, hjb0, bdr0],
+      "schedule_final": [1.0, hjb1, bdr1],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-5
+    }
+  ]
+}
+
+Selection rules:
+- Continue from the best safe checkpoint when reward and MC are stable.
+- If reward or meanMC degraded, reduce weights or slow the schedule before trying larger weights.
+- Increase HJB/BDR gradually.
+- Use at most one TD3-restart control per round, unless all scheduling checkpoints collapsed.
+- Do not repeat an existing start_checkpoint + schedule_initial + schedule_final combination unless round_note explains why.
+
+Advisor context from TOML:
+
+Manual notes:
+- This matches manual fixed2randT_uniformHJB: fixedT TD3 baseline, randT scheduling reset, uniform HJB samples.
+- Compare against fixed2randT_replayHJB to isolate the HJB sampling distribution.
+- HJB/BDR=0.05 is a useful manual-style comparison point, but back off if reward or MC reachability degrades.
+
+Reference paths:
+- logs/drift/README.md
+- logs/drift/scheduling_randT_replayHJB
+- logs/drift/scheduling_fixed2randT_uniformHJB
+- logs/drift/scheduling_fixedT_replayHJB
+- logs/drift/scheduling_fixedT_uniformHJB
+- logs/drift/td3_T01_randT/
+- logs/drift/td3_T01/
+
+
+Completed results JSON:
+[
+  {
+    "name": "ramp0to001",
+    "start_checkpoint": "logs/drift/td3_T01/up05M_scale10_mix334/ckpt-5000000",
+    "start_itr": 5000000,
+    "checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_000/ramp0to001/train/0625_1015_ramp0to001_seed_1/ckpt-6000000",
+    "target_updates": 6000000,
+    "candidate": {
+      "name": "ramp0to001",
+      "start_checkpoint": "logs/drift/td3_T01/up05M_scale10_mix334/ckpt-5000000",
+      "schedule_initial": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "schedule_final": [
+        1.0,
+        0.01,
+        0.01
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05
+    },
+    "mc_metrics": {
+      "beta_r": {
+        "mean_abs_mc_v": 0.1695,
+        "max_abs_mc_v": 0.9974,
+        "mean_mc": 0.4047,
+        "mean_v": 0.2359
+      },
+      "ey_epsi": {
+        "mean_abs_mc_v": 0.1675,
+        "max_abs_mc_v": 0.8948,
+        "mean_mc": 0.5756,
+        "mean_v": 0.4117
+      }
+    },
+    "tensorboard_last": {
+      "RL/Average Reward": 0.12999999523162842,
+      "Loss/RL": 0.004678318277001381,
+      "Loss/HJB": 0.05425982177257538,
+      "Loss/HJB_replay": null,
+      "Loss/BDR": 0.011371891014277935,
+      "Weights/RL": 1.0,
+      "Weights/HJB": 0.009999999776482582,
+      "Weights/BDR": 0.009999999776482582
+    }
+  },
+  {
+    "name": "ramp0to005",
+    "start_checkpoint": "logs/drift/td3_T01/up05M_scale10_mix334/ckpt-5000000",
+    "start_itr": 5000000,
+    "checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_000/ramp0to005/train/0625_1015_ramp0to005_seed_1/ckpt-6000000",
+    "target_updates": 6000000,
+    "candidate": {
+      "name": "ramp0to005",
+      "start_checkpoint": "logs/drift/td3_T01/up05M_scale10_mix334/ckpt-5000000",
+      "schedule_initial": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "schedule_final": [
+        1.0,
+        0.05,
+        0.05
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05
+    },
+    "mc_metrics": {
+      "beta_r": {
+        "mean_abs_mc_v": 0.1608,
+        "max_abs_mc_v": 0.9852,
+        "mean_mc": 0.3743,
+        "mean_v": 0.2151
+      },
+      "ey_epsi": {
+        "mean_abs_mc_v": 0.1633,
+        "max_abs_mc_v": 0.8537,
+        "mean_mc": 0.5672,
+        "mean_v": 0.4078
+      }
+    },
+    "tensorboard_last": {
+      "RL/Average Reward": 0.15000000596046448,
+      "Loss/RL": 0.005194326862692833,
+      "Loss/HJB": 0.007039847318083048,
+      "Loss/HJB_replay": null,
+      "Loss/BDR": 0.011740513145923615,
+      "Weights/RL": 1.0,
+      "Weights/HJB": 0.05000000074505806,
+      "Weights/BDR": 0.05000000074505806
+    }
+  },
+  {
+    "name": "hold005_from6M",
+    "start_checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_000/ramp0to005/train/0625_1015_ramp0to005_seed_1/ckpt-6000000",
+    "start_itr": 6000000,
+    "checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_001/hold005_from6M/train/0626_0905_hold005_from6M_seed_1/ckpt-7000000",
+    "target_updates": 7000000,
+    "candidate": {
+      "name": "hold005_from6M",
+      "start_checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_000/ramp0to005/train/0625_1015_ramp0to005_seed_1/ckpt-6000000",
+      "schedule_initial": [
+        1.0,
+        0.05,
+        0.05
+      ],
+      "schedule_final": [
+        1.0,
+        0.05,
+        0.05
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05
+    },
+    "mc_metrics": {
+      "beta_r": {
+        "mean_abs_mc_v": 0.2069,
+        "max_abs_mc_v": 0.9986,
+        "mean_mc": 0.3954,
+        "mean_v": 0.1899
+      },
+      "ey_epsi": {
+        "mean_abs_mc_v": 0.1694,
+        "max_abs_mc_v": 0.9691,
+        "mean_mc": 0.5676,
+        "mean_v": 0.4011
+      }
+    },
+    "tensorboard_last": {
+      "RL/Average Reward": 0.14000000059604645,
+      "Loss/RL": 0.004775560926645994,
+      "Loss/HJB": 0.010396385565400124,
+      "Loss/HJB_replay": null,
+      "Loss/BDR": 0.009838419035077095,
+      "Weights/RL": 1.0,
+      "Weights/HJB": 0.05000000074505806,
+      "Weights/BDR": 0.05000000074505806
+    }
+  },
+  {
+    "name": "ramp005to0075",
+    "start_checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_000/ramp0to005/train/0625_1015_ramp0to005_seed_1/ckpt-6000000",
+    "start_itr": 6000000,
+    "checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_001/ramp005to0075/train/0626_0905_ramp005to0075_seed_1/ckpt-7000000",
+    "target_updates": 7000000,
+    "candidate": {
+      "name": "ramp005to0075",
+      "start_checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_000/ramp0to005/train/0625_1015_ramp0to005_seed_1/ckpt-6000000",
+      "schedule_initial": [
+        1.0,
+        0.05,
+        0.05
+      ],
+      "schedule_final": [
+        1.0,
+        0.075,
+        0.075
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05
+    },
+    "mc_metrics": {
+      "beta_r": {
+        "mean_abs_mc_v": 0.2068,
+        "max_abs_mc_v": 0.9991,
+        "mean_mc": 0.3814,
+        "mean_v": 0.176
+      },
+      "ey_epsi": {
+        "mean_abs_mc_v": 0.18,
+        "max_abs_mc_v": 0.9674,
+        "mean_mc": 0.5708,
+        "mean_v": 0.3945
+      }
+    },
+    "tensorboard_last": {
+      "RL/Average Reward": 0.10999999940395355,
+      "Loss/RL": 0.004913056269288063,
+      "Loss/HJB": 0.0026158469263464212,
+      "Loss/HJB_replay": null,
+      "Loss/BDR": 0.008630027063190937,
+      "Weights/RL": 1.0,
+      "Weights/HJB": 0.07500000298023224,
+      "Weights/BDR": 0.07500000298023224
+    }
+  },
+  {
+    "name": "backoff005to0025_from7M",
+    "start_checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_001/hold005_from6M/train/0626_0905_hold005_from6M_seed_1/ckpt-7000000",
+    "start_itr": 7000000,
+    "checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_002/backoff005to0025_from7M/train/0627_0137_backoff005to0025_from7M_seed_1/ckpt-8000000",
+    "target_updates": 8000000,
+    "candidate": {
+      "name": "backoff005to0025_from7M",
+      "start_checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_001/hold005_from6M/train/0626_0905_hold005_from6M_seed_1/ckpt-7000000",
+      "schedule_initial": [
+        1.0,
+        0.05,
+        0.05
+      ],
+      "schedule_final": [
+        1.0,
+        0.025,
+        0.025
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05
+    },
+    "mc_metrics": {
+      "beta_r": {
+        "mean_abs_mc_v": 0.2233,
+        "max_abs_mc_v": 0.9992,
+        "mean_mc": 0.3967,
+        "mean_v": 0.1739
+      },
+      "ey_epsi": {
+        "mean_abs_mc_v": 0.1964,
+        "max_abs_mc_v": 0.9751,
+        "mean_mc": 0.5589,
+        "mean_v": 0.3656
+      }
+    },
+    "tensorboard_last": {
+      "RL/Average Reward": 0.15000000596046448,
+      "Loss/RL": 0.009233697317540646,
+      "Loss/HJB": 0.00929327867925167,
+      "Loss/HJB_replay": null,
+      "Loss/BDR": 0.023045208305120468,
+      "Weights/RL": 1.0,
+      "Weights/HJB": 0.02500000037252903,
+      "Weights/BDR": 0.02500000037252903
+    }
+  },
+  {
+    "name": "restart_ramp0to0025",
+    "start_checkpoint": "logs/drift/td3_T01/up05M_scale10_mix334/ckpt-5000000",
+    "start_itr": 5000000,
+    "checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_002/restart_ramp0to0025/train/0627_0137_restart_ramp0to0025_seed_1/ckpt-6000000",
+    "target_updates": 6000000,
+    "candidate": {
+      "name": "restart_ramp0to0025",
+      "start_checkpoint": "logs/drift/td3_T01/up05M_scale10_mix334/ckpt-5000000",
+      "schedule_initial": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "schedule_final": [
+        1.0,
+        0.025,
+        0.025
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05
+    },
+    "mc_metrics": {
+      "beta_r": {
+        "mean_abs_mc_v": 0.1242,
+        "max_abs_mc_v": 0.9967,
+        "mean_mc": 0.3556,
+        "mean_v": 0.2408
+      },
+      "ey_epsi": {
+        "mean_abs_mc_v": 0.1311,
+        "max_abs_mc_v": 0.9197,
+        "mean_mc": 0.5051,
+        "mean_v": 0.4246
+      }
+    },
+    "tensorboard_last": {
+      "RL/Average Reward": 0.1599999964237213,
+      "Loss/RL": 0.004878987092524767,
+      "Loss/HJB": 0.013665672391653061,
+      "Loss/HJB_replay": null,
+      "Loss/BDR": 0.018612805753946304,
+      "Weights/RL": 1.0,
+      "Weights/HJB": 0.02500000037252903,
+      "Weights/BDR": 0.02500000037252903
+    }
+  },
+  {
+    "name": "hold0025_from6M",
+    "start_checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_002/restart_ramp0to0025/train/0627_0137_restart_ramp0to0025_seed_1/ckpt-6000000",
+    "start_itr": 6000000,
+    "checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_003/hold0025_from6M/train/0627_1812_hold0025_from6M_seed_1/ckpt-7000000",
+    "target_updates": 7000000,
+    "candidate": {
+      "name": "hold0025_from6M",
+      "start_checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_002/restart_ramp0to0025/train/0627_0137_restart_ramp0to0025_seed_1/ckpt-6000000",
+      "schedule_initial": [
+        1.0,
+        0.025,
+        0.025
+      ],
+      "schedule_final": [
+        1.0,
+        0.025,
+        0.025
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05
+    },
+    "mc_metrics": {
+      "beta_r": {
+        "mean_abs_mc_v": 0.1726,
+        "max_abs_mc_v": 0.9964,
+        "mean_mc": 0.406,
+        "mean_v": 0.2347
+      },
+      "ey_epsi": {
+        "mean_abs_mc_v": 0.1362,
+        "max_abs_mc_v": 0.9149,
+        "mean_mc": 0.5689,
+        "mean_v": 0.4386
+      }
+    },
+    "tensorboard_last": {
+      "RL/Average Reward": 0.17000000178813934,
+      "Loss/RL": 0.010106244124472141,
+      "Loss/HJB": 0.013422248885035515,
+      "Loss/HJB_replay": null,
+      "Loss/BDR": 0.01093926839530468,
+      "Weights/RL": 1.0,
+      "Weights/HJB": 0.02500000037252903,
+      "Weights/BDR": 0.02500000037252903
+    }
+  },
+  {
+    "name": "ramp0025to0035",
+    "start_checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_002/restart_ramp0to0025/train/0627_0137_restart_ramp0to0025_seed_1/ckpt-6000000",
+    "start_itr": 6000000,
+    "checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_003/ramp0025to0035/train/0627_1812_ramp0025to0035_seed_1/ckpt-7000000",
+    "target_updates": 7000000,
+    "candidate": {
+      "name": "ramp0025to0035",
+      "start_checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_002/restart_ramp0to0025/train/0627_0137_restart_ramp0to0025_seed_1/ckpt-6000000",
+      "schedule_initial": [
+        1.0,
+        0.025,
+        0.025
+      ],
+      "schedule_final": [
+        1.0,
+        0.035,
+        0.035
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05
+    },
+    "mc_metrics": {
+      "beta_r": {
+        "mean_abs_mc_v": 0.1802,
+        "max_abs_mc_v": 0.999,
+        "mean_mc": 0.4001,
+        "mean_v": 0.2207
+      },
+      "ey_epsi": {
+        "mean_abs_mc_v": 0.1443,
+        "max_abs_mc_v": 0.8479,
+        "mean_mc": 0.5646,
+        "mean_v": 0.4253
+      }
+    },
+    "tensorboard_last": {
+      "RL/Average Reward": 0.10999999940395355,
+      "Loss/RL": 0.003928610123693943,
+      "Loss/HJB": 0.014649821445345879,
+      "Loss/HJB_replay": null,
+      "Loss/BDR": 0.02712498977780342,
+      "Weights/RL": 1.0,
+      "Weights/HJB": 0.03500000014901161,
+      "Weights/BDR": 0.03500000014901161
+    }
+  }
+]
+
+codex
+I’ll write the next-round plan directly, after checking the local experiment folder and curated log notes so the candidates don’t duplicate an existing combination.
+exec
+/bin/bash -lc "sed -n '1,220p' logs/drift/README.md" in /home/ubuntu/ProbReachPIRL/ProbReachPIRL
+ succeeded in 0ms:
+# Drift training logs
+
+This directory contains curated training logs for the drifting-control task.
+
+## TD3 logs
+
+The main curated TD3 series are:
+
+- `td3_T002/`: fixed reset horizon experiments with `T=5.0`.  The time step is  `dt=0.02`.
+- `td3_T01/`: fixed reset horizon experiments with `T=5.0`. The time step is  `dt=0.1`.
+- `td3_T01_randT/`: random horizon experiments.  Initial states use `T` sampled in `[0, 5]`.
+
+Directory names use the following convention:
+
+- `upXXM`: training has reached approximately `XX` million TD3 updates.
+- `scaleYY`: reset region scale, for example `scale10` means `DRIFT_RESET_SCALE=1.0`.
+- `mix334`: reset mixture probabilities `(0.3, 0.3, 0.4)`.
+- `mix442`: reset mixture probabilities `(0.4, 0.4, 0.2)`.
+- `mix45451`: reset mixture probabilities `(0.45, 0.45, 0.10)`.
+- `randT`: reset horizon was randomized instead of fixed.
+
+### `td3_T002`
+
+Older fixed-`T=5.0` TD3 curriculum with a smaller time step, `dt=0.02`.
+
+Main sequence:
+
+- `up01M_scale02_mix001/ckpt-1000000`
+- `up03M_scale10_mix45451/ckpt-3000000`
+- `up05M_scale10_mix45451/ckpt-5000000`
+- `up07M_scale10_mix45451/ckpt-7000000`
+- `up09M_scale10_mix45451/ckpt-9000000`
+- `up11M_scale10_mix442/ckpt-11000000`
+- `up13M_scale10_mix442/ckpt-13000000`
+
+This series is mostly a historical baseline for the smaller-`dt` training.
+
+### `td3_T01`
+
+Fixed `T=5.0` TD3 training.
+
+Main sequence:
+
+- `up01M_scale04_mix442/ckpt-1000000`
+- `up03M_scale10_mix334/ckpt-3000000`
+- `up05M_scale10_mix334/ckpt-5000000`
+- `up10M_scale10_mix334/ckpt-10000000`
+
+At the `T=5`, `mu=0.55` MC reachability evaluation slice, the 10M fixed-`T`
+runs gave high closed-loop reachability.
+
+
+### `td3_T01_randT`
+
+Random-horizon TD3 training.
+
+Main sequence:
+
+- `up02M_scale08_mix334_randT/ckpt-2000000`
+- `up03M_scale10_mix334_randT/ckpt-3000000`
+- `up10M_scale10_mix334_randT/ckpt-10000000`
+- `up15M_scale10_mix334_randT/ckpt-15000000`
+
+The random-`T` 15M representative is seed 3 from the `0622_1051` continuation.
+It had the best MC reachability meanMC among the 15M seeds on both evaluated
+planes at `T=5.0`, `mu=0.55`.
+
+
+## Scheduling logs
+
+Scheduling/PIRL runs were started after checking the TD3 baselines above.  The
+main hand-run workflow was:
+
+1. train or select a TD3 checkpoint,
+2. continue from that checkpoint with HJB/BDR scheduling,
+3. monitor TensorBoard reward and losses, and
+4. evaluate checkpoints with MC reachability on the beta-r and ey-epsi planes at
+   `T=5.0`, `mu=0.55`.
+
+Curated scheduling logs are grouped by the conditions that mattered most during
+the manual comparison:
+
+- `scheduling_randT_replayHJB/`: random reset horizon, replay-memory HJB
+  sampling. This is the main scheduling continuation from the random-`T` TD3
+  baseline.
+- `scheduling_fixedT_replayHJB/`: fixed `T=5.0`, replay-memory HJB sampling.
+- `scheduling_fixedT_uniformHJB/`: fixed `T=5.0`, uniform HJB sampling.
+- `scheduling_fixed2randT_uniformHJB/`: started from a fixed-`T` TD3 baseline,
+  then continued with randomized `T` and uniform HJB sampling.
+
+Within each scheduling group, directory names keep the date/time prefix for
+traceability and use short condition tags:
+
+- `ramp001`: HJB and BDR weights were ramped up to `0.01`.
+- `ramp005`: HJB and BDR weights were ramped up to `0.05`.
+- `const001`: HJB and BDR weights were held at `0.01`.
+- `fail` or `fail_hjb01`: kept failure reference where larger HJB/BDR weights
+  degraded reward.
+- `XMtoYM`: continuation range in TD3/PIRL update count.
+
+Representative seeds were selected by MC reachability meanMC on the evaluated
+planes.  For active continuations, more than one seed may be kept until the next
+selection step is made.  Checkpoints are kept at 1M-update intervals whenever
+possible; stopped failure references keep the final useful checkpoint.
+
+The earlier long names such as `scheduling_T01_randT_scale10_mix334...` were
+archived after curation because `scale10_mix334` mainly describes the inherited
+TD3 checkpoint rather than the scheduling condition being compared.
+
+## Notes
+
+- TensorBoard scalar logs were retagged after the HJB logger change: use
+  `Loss/HJB` for uniform HJB evaluation and `Loss/HJB_replay` for replay-sampled
+  HJB loss.
+- Checkpoints named directly under a curated directory are the representative
+  checkpoints after log cleanup.  Archived per-seed raw runs may exist outside
+  these curated directories.
+
+exec
+/bin/bash -lc 'rg --files scheduling_experiment/fixed2randT_uniformHJB_5Mto10M logs/drift | head -200' in /home/ubuntu/ProbReachPIRL/ProbReachPIRL
+ succeeded in 0ms:
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_003_plan.json
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_000/plan.json
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_000/codex_next_plan_prompt.md
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_000/codex_next_plan_prompt.advisor.log
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_000/results.json
+logs/drift/scheduling_fixed2randT_uniformHJB/0618_1729_ramp005_5Mto7M/training.log
+logs/drift/scheduling_fixed2randT_uniformHJB/0618_1729_ramp005_5Mto7M/ckpt-6000000
+logs/drift/scheduling_fixed2randT_uniformHJB/0618_1729_ramp005_5Mto7M/events.out.tfevents.1782274763.poincare.3.1
+logs/drift/scheduling_fixed2randT_uniformHJB/0618_1729_ramp005_5Mto7M/ckpt-7000000
+logs/drift/scheduling_fixed2randT_uniformHJB/0618_1729_ramp001_5Mto7M/events.out.tfevents.1782274760.poincare.3.0
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_000/ramp0to001/train/scheduling_ramp0to001_seed1.log
+logs/drift/scheduling_fixed2randT_uniformHJB/0618_1729_ramp001_5Mto7M/training.log
+logs/drift/scheduling_fixed2randT_uniformHJB/0618_1729_ramp001_5Mto7M/ckpt-6000000
+logs/drift/scheduling_fixed2randT_uniformHJB/0618_1729_ramp001_5Mto7M/ckpt-7000000
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_000/ramp0to001/train/0625_1015_ramp0to001_seed_1/ckpt-6000000
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_000/ramp0to001/train/0625_1015_ramp0to001_seed_1/events.out.tfevents.1782382503.ip-172-31-37-159.69655.0
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_000/ramp0to001/eval.log
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_000/ramp0to001/result.json
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_000/ramp0to001/candidate.json
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_000/ramp0to001/train.log
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/all_results.json
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_000/ramp0to001/eval/mc_reachability_beta_r.npz
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_000/ramp0to001/eval/mc_vs_value_contours.pdf
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_000/ramp0to001/eval/mc_vs_value_contours.png
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_000/ramp0to001/eval/mc_reachability_ey_epsi.npz
+logs/drift/scheduling_randT_replayHJB/0622_0904_const001_3Mto5M_seed1/ckpt-4000000
+logs/drift/scheduling_randT_replayHJB/0622_0904_const001_3Mto5M_seed1/training.log
+logs/drift/scheduling_randT_replayHJB/0622_0904_const001_3Mto5M_seed1/events.out.tfevents.1782371628.poincare.3.2
+logs/drift/scheduling_randT_replayHJB/0622_0904_const001_3Mto5M_seed1/ckpt-5000000
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_003/plan.json
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_003/codex_next_plan_prompt.md
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_003/ramp0025to0035/train/scheduling_ramp0025to0035_seed1.log
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_003/results.json
+logs/drift/scheduling_randT_replayHJB/0623_1415_const001_5Mto7M_seed_2/ckpt-6000000
+logs/drift/scheduling_randT_replayHJB/0623_1415_const001_5Mto7M_seed_2/events.out.tfevents.1782372955.maxwell.3.1
+logs/drift/scheduling_randT_replayHJB/0623_1415_const001_5Mto7M_seed_2/ckpt-7000000
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_000/ramp0to005/train/0625_1015_ramp0to005_seed_1/ckpt-6000000
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_000/ramp0to005/train/0625_1015_ramp0to005_seed_1/events.out.tfevents.1782382503.ip-172-31-37-159.69658.0
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_000/ramp0to005/train/scheduling_ramp0to005_seed1.log
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_000/ramp0to005/eval.log
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_000/ramp0to005/result.json
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_000/ramp0to005/candidate.json
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_000/ramp0to005/train.log
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_003/ramp0025to0035/candidate.json
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_003/ramp0025to0035/train.log
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_003/ramp0025to0035/train/0627_1812_ramp0025to0035_seed_1/events.out.tfevents.1782583942.ip-172-31-37-159.95827.0
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_003/ramp0025to0035/train/0627_1812_ramp0025to0035_seed_1/ckpt-7000000
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_003/ramp0025to0035/eval.log
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_003/ramp0025to0035/result.json
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/launch_queued.sh
+logs/drift/scheduling_randT_replayHJB/0623_1415_const001_5Mto7M_seed_1/ckpt-6000000
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_000/ramp0to005/eval/mc_reachability_beta_r.npz
+logs/drift/scheduling_randT_replayHJB/0623_1415_const001_5Mto7M_seed_1/events.out.tfevents.1782372950.maxwell.3.0
+logs/drift/scheduling_randT_replayHJB/0623_1415_const001_5Mto7M_seed_1/ckpt-7000000
+logs/drift/scheduling_randT_replayHJB/scheduling_const001_5Mto7M_seed2.log
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_002/codex_next_plan_prompt.advisor.log
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_002/results.json
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/launcher.log
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_002/codex_next_plan_prompt.md
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_000/ramp0to005/eval/mc_vs_value_contours.pdf
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_000/ramp0to005/eval/mc_vs_value_contours.png
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_000/ramp0to005/eval/mc_reachability_ey_epsi.npz
+logs/drift/td3_T01_randT/up03M_scale10_mix334_randT.log
+logs/drift/scheduling_randT_replayHJB/0619_1649_ramp001_to3M_seed1/ckpt-3000000
+logs/drift/td3_T01_randT/up02M_scale08_mix334_randT/ckpt-2000000
+logs/drift/td3_T01_randT/up02M_scale08_mix334_randT/events.out.tfevents.1781755445.maxwell.3586949.0
+logs/drift/scheduling_randT_replayHJB/0619_1649_ramp001_to3M_seed1/training.log
+logs/drift/scheduling_randT_replayHJB/0619_1649_ramp001_to3M_seed1/events.out.tfevents.1782371624.poincare.3.1
+logs/drift/scheduling_randT_replayHJB/README.md
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_002/restart_ramp0to0025/train.log
+logs/drift/scheduling_randT_replayHJB/0619_0938_fail_hjb01_to2p4M_seed1/training.log
+logs/drift/scheduling_randT_replayHJB/0619_0938_fail_hjb01_to2p4M_seed1/events.out.tfevents.1782371622.poincare.3.0
+logs/drift/scheduling_randT_replayHJB/0619_0938_fail_hjb01_to2p4M_seed1/ckpt-2400000
+logs/drift/scheduling_randT_replayHJB/scheduling_const001_5Mto7M_seed1.log
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_002/plan.json
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_002/restart_ramp0to0025/result.json
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_002/restart_ramp0to0025/candidate.json
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_002/restart_ramp0to0025/eval.log
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_002/restart_ramp0to0025/train/scheduling_restart_ramp0to0025_seed1.log
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_003/ramp0025to0035/eval/mc_reachability_beta_r.npz
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_003/ramp0025to0035/eval/mc_vs_value_contours.pdf
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_003/ramp0025to0035/eval/mc_vs_value_contours.png
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_003/ramp0025to0035/eval/mc_reachability_ey_epsi.npz
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_003/hold0025_from6M/result.json
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_003/hold0025_from6M/candidate.json
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_003/hold0025_from6M/train.log
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_003/hold0025_from6M/eval.log
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_002/restart_ramp0to0025/train/0627_0137_restart_ramp0to0025_seed_1/events.out.tfevents.1782524227.ip-172-31-37-159.87901.0
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_002/restart_ramp0to0025/train/0627_0137_restart_ramp0to0025_seed_1/ckpt-6000000
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_002/restart_ramp0to0025/eval/mc_vs_value_contours.png
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_002/restart_ramp0to0025/eval/mc_reachability_ey_epsi.npz
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_002/restart_ramp0to0025/eval/mc_vs_value_contours.pdf
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_002/restart_ramp0to0025/eval/mc_reachability_beta_r.npz
+logs/drift/td3_T01_randT/up10M_scale10_mix334_randT/ckpt-4000000
+logs/drift/td3_T01_randT/up10M_scale10_mix334_randT/ckpt-9000000
+logs/drift/td3_T01_randT/up10M_scale10_mix334_randT/ckpt-6000000
+logs/drift/td3_T01_randT/up10M_scale10_mix334_randT/events.out.tfevents.1781861480.maxwell.3672424.0
+logs/drift/td3_T01_randT/up10M_scale10_mix334_randT/ckpt-10000000
+logs/drift/td3_T01_randT/up10M_scale10_mix334_randT/ckpt-7000000
+logs/drift/td3_T01_randT/up10M_scale10_mix334_randT/ckpt-5000000
+logs/drift/td3_T01_randT/up10M_scale10_mix334_randT/ckpt-8000000
+logs/drift/td3_T01_randT/up10M_scale10_mix334_randT.log
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_001_plan.json
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_002_plan.json
+logs/drift/td3_T01_randT/up03M_scale10_mix334_randT/ckpt-3000000
+logs/drift/td3_T01_randT/up03M_scale10_mix334_randT/events.out.tfevents.1781857436.maxwell.2.2
+logs/drift/td3_T01_randT/up02M_scale08_mix334_randT.log
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_001/codex_next_plan_prompt.advisor.log
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_001/results.json
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_001/codex_next_plan_prompt.md
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_001/plan.json
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_002/backoff005to0025_from7M/candidate.json
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_002/backoff005to0025_from7M/train.log
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_002/backoff005to0025_from7M/result.json
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_002/backoff005to0025_from7M/eval.log
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_003/hold0025_from6M/eval/mc_vs_value_contours.png
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_003/hold0025_from6M/eval/mc_reachability_ey_epsi.npz
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_003/hold0025_from6M/eval/mc_vs_value_contours.pdf
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_003/hold0025_from6M/eval/mc_reachability_beta_r.npz
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_002/backoff005to0025_from7M/train/scheduling_backoff005to0025_from7M_seed1.log
+logs/drift/td3_T01/up10M_scale10_mix334/ckpt-9000000
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_003/hold0025_from6M/train/0627_1812_hold0025_from6M_seed_1/ckpt-7000000
+logs/drift/td3_T01/up01M_scale04_mix442/events.out.tfevents.1781570534.poincare.1866042.0
+logs/drift/td3_T01/up10M_scale10_mix334/ckpt-6000000
+logs/drift/td3_T01/up10M_scale10_mix334/ckpt-10000000
+logs/drift/td3_T01/up10M_scale10_mix334/ckpt-7000000
+logs/drift/td3_T01/up10M_scale10_mix334/events.out.tfevents.1781906014.maxwell.1709051.0
+logs/drift/td3_T01/up10M_scale10_mix334/ckpt-8000000
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_003/hold0025_from6M/train/0627_1812_hold0025_from6M_seed_1/events.out.tfevents.1782583942.ip-172-31-37-159.95830.0
+logs/drift/td3_T01/up01M_scale04_mix442/ckpt-1000000
+logs/drift/td3_T01/up05M_scale10_mix334/ckpt-4000000
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_003/hold0025_from6M/train/scheduling_hold0025_from6M_seed1.log
+logs/drift/td3_T002/up09M_scale10_mix45451/ckpt-9000000
+logs/drift/td3_T002/up09M_scale10_mix45451/events.out.tfevents.1781221861.poincare.1313390.0
+logs/drift/td3_T01/up05M_scale10_mix334/ckpt-5000000
+logs/drift/td3_T002/up09M_scale10_mix45451/ckpt-8000000
+logs/drift/td3_T01/up05M_scale10_mix334/events.out.tfevents.1781622292.poincare.1943215.0
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_002/backoff005to0025_from7M/train/0627_0137_backoff005to0025_from7M_seed_1/events.out.tfevents.1782524227.ip-172-31-37-159.87898.0
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_002/backoff005to0025_from7M/train/0627_0137_backoff005to0025_from7M_seed_1/ckpt-8000000
+logs/drift/scheduling_fixedT_replayHJB/0623_1622_ramp001_10Mto12M/training.log
+logs/drift/scheduling_fixedT_replayHJB/0623_1622_ramp001_10Mto12M/ckpt-12000000
+logs/drift/scheduling_fixedT_replayHJB/0623_1622_ramp001_10Mto12M/events.out.tfevents.1782274307.poincare.3.3
+logs/drift/scheduling_fixedT_replayHJB/0623_1622_ramp001_10Mto12M/ckpt-11000000
+logs/drift/scheduling_fixedT_replayHJB/0619_1555_ramp01_5Mto7_fail/ckpt-6000000
+logs/drift/scheduling_fixedT_replayHJB/0619_1555_ramp01_5Mto7_fail/ckpt-7000000
+logs/drift/scheduling_fixedT_replayHJB/0619_1555_ramp01_5Mto7_fail/training.log
+logs/drift/scheduling_fixedT_replayHJB/0619_1555_ramp01_5Mto7_fail/events.out.tfevents.1782274302.poincare.3.2
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_001/ramp005to0075/candidate.json
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_001/ramp005to0075/train.log
+logs/drift/td3_T002/up13M_scale10_mix442/ckpt-12000000
+logs/drift/td3_T002/up13M_scale10_mix442/events.out.tfevents.1781481434.poincare.1722824.0
+logs/drift/td3_T002/up13M_scale10_mix442/ckpt-13000000
+logs/drift/td3_T01/up03M_scale10_mix334/events.out.tfevents.1781589764.poincare.1898936.0
+logs/drift/td3_T01/up10M_scale10_mix334.log
+logs/drift/td3_T01/up03M_scale10_mix334/ckpt-3000000
+logs/drift/td3_T01/up03M_scale10_mix334/ckpt-2000000
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_002/backoff005to0025_from7M/eval/mc_vs_value_contours.png
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_002/backoff005to0025_from7M/eval/mc_reachability_ey_epsi.npz
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_002/backoff005to0025_from7M/eval/mc_vs_value_contours.pdf
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_002/backoff005to0025_from7M/eval/mc_reachability_beta_r.npz
+logs/drift/README.md
+logs/drift/scheduling_fixedT_replayHJB/0623_1622_ramp005_10Mto12M/events.out.tfevents.1782274311.poincare.3.4
+logs/drift/scheduling_fixedT_replayHJB/0623_1622_ramp005_10Mto12M/ckpt-11000000
+logs/drift/scheduling_fixedT_replayHJB/0623_1622_ramp005_10Mto12M/ckpt-12000000
+logs/drift/scheduling_fixedT_replayHJB/0623_1622_ramp005_10Mto12M/training.log
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_001/ramp005to0075/eval.log
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_001/ramp005to0075/result.json
+logs/drift/td3_T002/up03M_scale10_mix45451/ckpt-2000000
+logs/drift/td3_T002/up03M_scale10_mix45451/events.out.tfevents.1781050958.poincare.1044180.0
+logs/drift/td3_T002/up03M_scale10_mix45451/ckpt-3000000
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_001/hold005_from6M/candidate.json
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_001/hold005_from6M/train.log
+logs/drift/scheduling_fixedT_uniformHJB/0622_1806_ramp005_10Mto12M/events.out.tfevents.1782274299.poincare.3.1
+logs/drift/scheduling_fixedT_uniformHJB/0622_1806_ramp005_10Mto12M/training.log
+logs/drift/scheduling_fixedT_uniformHJB/0622_1806_ramp005_10Mto12M/ckpt-12000000
+logs/drift/scheduling_fixedT_uniformHJB/0622_1806_ramp005_10Mto12M/ckpt-11000000
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_001/hold005_from6M/result.json
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_001/hold005_from6M/eval.log
+logs/drift/td3_T002/up07M_scale10_mix45451/ckpt-7000000
+logs/drift/td3_T002/up07M_scale10_mix45451/events.out.tfevents.1781167717.poincare.1227978.0
+logs/drift/td3_T002/up07M_scale10_mix45451/ckpt-6000000
+logs/drift/scheduling_fixedT_uniformHJB/0622_1806_ramp001_10Mto12M/events.out.tfevents.1782274295.poincare.3.0
+logs/drift/scheduling_fixedT_uniformHJB/0622_1806_ramp001_10Mto12M/ckpt-11000000
+logs/drift/scheduling_fixedT_uniformHJB/0622_1806_ramp001_10Mto12M/ckpt-12000000
+logs/drift/scheduling_fixedT_uniformHJB/0622_1806_ramp001_10Mto12M/training.log
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_001/hold005_from6M/eval/mc_vs_value_contours.png
+logs/drift/td3_T002/up01M_scale02_mix001/events.out.tfevents.1780906998.poincare.787817.0
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_001/ramp005to0075/train/scheduling_ramp005to0075_seed1.log
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_001/hold005_from6M/eval/mc_reachability_ey_epsi.npz
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_001/hold005_from6M/eval/mc_vs_value_contours.pdf
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_001/hold005_from6M/eval/mc_reachability_beta_r.npz
+logs/drift/td3_T002/up01M_scale02_mix001/ckpt-1000000
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_001/hold005_from6M/train/scheduling_hold005_from6M_seed1.log
+logs/drift/td3_T002/up05M_scale10_mix45451/events.out.tfevents.1781135622.poincare.1175487.0
+logs/drift/td3_T002/up05M_scale10_mix45451/ckpt-5000000
+logs/drift/td3_T002/up05M_scale10_mix45451/ckpt-4000000
+logs/drift/td3_T002/up11M_scale10_mix442/ckpt-10000000
+logs/drift/td3_T002/up11M_scale10_mix442/ckpt-11000000
+logs/drift/td3_T002/up11M_scale10_mix442/events.out.tfevents.1781371849.poincare.1552799.0
+scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_001/hold005_from6M/train/0626_0905_hold005_from6M_seed_1/ckpt-7000000
+
+codex
+The latest safe branch is the 0.025 hold from the 6M restart: reward improved to 0.17 and MC stayed strong on both planes. I’m checking the previous plan JSONs now, then I’ll write two non-duplicate continuations from that checkpoint.
+exec
+/bin/bash -lc "sed -n '1,220p' scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_003_plan.json" in /home/ubuntu/ProbReachPIRL/ProbReachPIRL
+ succeeded in 0ms:
+{
+  "round_note": "Round 002 restart_ramp0to0025 has the best mean|MC-V| and reward is no worse than the 0.05 line, but mean MC is weaker; continue from that safe calibrated checkpoint with one hold and one small ramp, avoiding larger weights until MC reachability recovers.",
+  "candidates": [
+    {
+      "name": "hold0025_from6M",
+      "start_checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_002/restart_ramp0to0025/train/0627_0137_restart_ramp0to0025_seed_1/ckpt-6000000",
+      "schedule_initial": [
+        1.0,
+        0.025,
+        0.025
+      ],
+      "schedule_final": [
+        1.0,
+        0.025,
+        0.025
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05
+    },
+    {
+      "name": "ramp0025to0035",
+      "start_checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_002/restart_ramp0to0025/train/0627_0137_restart_ramp0to0025_seed_1/ckpt-6000000",
+      "schedule_initial": [
+        1.0,
+        0.025,
+        0.025
+      ],
+      "schedule_final": [
+        1.0,
+        0.035,
+        0.035
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05
+    }
+  ]
+}
+
+exec
+/bin/bash -lc "sed -n '1,220p' scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_003/plan.json" in /home/ubuntu/ProbReachPIRL/ProbReachPIRL
+ succeeded in 0ms:
+{
+  "round_note": "Round 002 restart_ramp0to0025 has the best mean|MC-V| and reward is no worse than the 0.05 line, but mean MC is weaker; continue from that safe calibrated checkpoint with one hold and one small ramp, avoiding larger weights until MC reachability recovers.",
+  "candidates": [
+    {
+      "name": "hold0025_from6M",
+      "start_checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_002/restart_ramp0to0025/train/0627_0137_restart_ramp0to0025_seed_1/ckpt-6000000",
+      "schedule_initial": [
+        1.0,
+        0.025,
+        0.025
+      ],
+      "schedule_final": [
+        1.0,
+        0.025,
+        0.025
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05
+    },
+    {
+      "name": "ramp0025to0035",
+      "start_checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_002/restart_ramp0to0025/train/0627_0137_restart_ramp0to0025_seed_1/ckpt-6000000",
+      "schedule_initial": [
+        1.0,
+        0.025,
+        0.025
+      ],
+      "schedule_final": [
+        1.0,
+        0.035,
+        0.035
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05
+    }
+  ]
+}
+
+exec
+/bin/bash -lc "sed -n '1,260p' scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/all_results.json" in /home/ubuntu/ProbReachPIRL/ProbReachPIRL
+ succeeded in 0ms:
+[
+  {
+    "name": "ramp0to001",
+    "start_checkpoint": "logs/drift/td3_T01/up05M_scale10_mix334/ckpt-5000000",
+    "start_itr": 5000000,
+    "checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_000/ramp0to001/train/0625_1015_ramp0to001_seed_1/ckpt-6000000",
+    "target_updates": 6000000,
+    "candidate": {
+      "name": "ramp0to001",
+      "start_checkpoint": "logs/drift/td3_T01/up05M_scale10_mix334/ckpt-5000000",
+      "schedule_initial": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "schedule_final": [
+        1.0,
+        0.01,
+        0.01
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05
+    },
+    "mc_metrics": {
+      "beta_r": {
+        "mean_abs_mc_v": 0.1695,
+        "max_abs_mc_v": 0.9974,
+        "mean_mc": 0.4047,
+        "mean_v": 0.2359
+      },
+      "ey_epsi": {
+        "mean_abs_mc_v": 0.1675,
+        "max_abs_mc_v": 0.8948,
+        "mean_mc": 0.5756,
+        "mean_v": 0.4117
+      }
+    },
+    "tensorboard_last": {
+      "RL/Average Reward": 0.12999999523162842,
+      "Loss/RL": 0.004678318277001381,
+      "Loss/HJB": 0.05425982177257538,
+      "Loss/HJB_replay": null,
+      "Loss/BDR": 0.011371891014277935,
+      "Weights/RL": 1.0,
+      "Weights/HJB": 0.009999999776482582,
+      "Weights/BDR": 0.009999999776482582
+    }
+  },
+  {
+    "name": "ramp0to005",
+    "start_checkpoint": "logs/drift/td3_T01/up05M_scale10_mix334/ckpt-5000000",
+    "start_itr": 5000000,
+    "checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_000/ramp0to005/train/0625_1015_ramp0to005_seed_1/ckpt-6000000",
+    "target_updates": 6000000,
+    "candidate": {
+      "name": "ramp0to005",
+      "start_checkpoint": "logs/drift/td3_T01/up05M_scale10_mix334/ckpt-5000000",
+      "schedule_initial": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "schedule_final": [
+        1.0,
+        0.05,
+        0.05
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05
+    },
+    "mc_metrics": {
+      "beta_r": {
+        "mean_abs_mc_v": 0.1608,
+        "max_abs_mc_v": 0.9852,
+        "mean_mc": 0.3743,
+        "mean_v": 0.2151
+      },
+      "ey_epsi": {
+        "mean_abs_mc_v": 0.1633,
+        "max_abs_mc_v": 0.8537,
+        "mean_mc": 0.5672,
+        "mean_v": 0.4078
+      }
+    },
+    "tensorboard_last": {
+      "RL/Average Reward": 0.15000000596046448,
+      "Loss/RL": 0.005194326862692833,
+      "Loss/HJB": 0.007039847318083048,
+      "Loss/HJB_replay": null,
+      "Loss/BDR": 0.011740513145923615,
+      "Weights/RL": 1.0,
+      "Weights/HJB": 0.05000000074505806,
+      "Weights/BDR": 0.05000000074505806
+    }
+  },
+  {
+    "name": "hold005_from6M",
+    "start_checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_000/ramp0to005/train/0625_1015_ramp0to005_seed_1/ckpt-6000000",
+    "start_itr": 6000000,
+    "checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_001/hold005_from6M/train/0626_0905_hold005_from6M_seed_1/ckpt-7000000",
+    "target_updates": 7000000,
+    "candidate": {
+      "name": "hold005_from6M",
+      "start_checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_000/ramp0to005/train/0625_1015_ramp0to005_seed_1/ckpt-6000000",
+      "schedule_initial": [
+        1.0,
+        0.05,
+        0.05
+      ],
+      "schedule_final": [
+        1.0,
+        0.05,
+        0.05
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05
+    },
+    "mc_metrics": {
+      "beta_r": {
+        "mean_abs_mc_v": 0.2069,
+        "max_abs_mc_v": 0.9986,
+        "mean_mc": 0.3954,
+        "mean_v": 0.1899
+      },
+      "ey_epsi": {
+        "mean_abs_mc_v": 0.1694,
+        "max_abs_mc_v": 0.9691,
+        "mean_mc": 0.5676,
+        "mean_v": 0.4011
+      }
+    },
+    "tensorboard_last": {
+      "RL/Average Reward": 0.14000000059604645,
+      "Loss/RL": 0.004775560926645994,
+      "Loss/HJB": 0.010396385565400124,
+      "Loss/HJB_replay": null,
+      "Loss/BDR": 0.009838419035077095,
+      "Weights/RL": 1.0,
+      "Weights/HJB": 0.05000000074505806,
+      "Weights/BDR": 0.05000000074505806
+    }
+  },
+  {
+    "name": "ramp005to0075",
+    "start_checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_000/ramp0to005/train/0625_1015_ramp0to005_seed_1/ckpt-6000000",
+    "start_itr": 6000000,
+    "checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_001/ramp005to0075/train/0626_0905_ramp005to0075_seed_1/ckpt-7000000",
+    "target_updates": 7000000,
+    "candidate": {
+      "name": "ramp005to0075",
+      "start_checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_000/ramp0to005/train/0625_1015_ramp0to005_seed_1/ckpt-6000000",
+      "schedule_initial": [
+        1.0,
+        0.05,
+        0.05
+      ],
+      "schedule_final": [
+        1.0,
+        0.075,
+        0.075
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05
+    },
+    "mc_metrics": {
+      "beta_r": {
+        "mean_abs_mc_v": 0.2068,
+        "max_abs_mc_v": 0.9991,
+        "mean_mc": 0.3814,
+        "mean_v": 0.176
+      },
+      "ey_epsi": {
+        "mean_abs_mc_v": 0.18,
+        "max_abs_mc_v": 0.9674,
+        "mean_mc": 0.5708,
+        "mean_v": 0.3945
+      }
+    },
+    "tensorboard_last": {
+      "RL/Average Reward": 0.10999999940395355,
+      "Loss/RL": 0.004913056269288063,
+      "Loss/HJB": 0.0026158469263464212,
+      "Loss/HJB_replay": null,
+      "Loss/BDR": 0.008630027063190937,
+      "Weights/RL": 1.0,
+      "Weights/HJB": 0.07500000298023224,
+      "Weights/BDR": 0.07500000298023224
+    }
+  },
+  {
+    "name": "backoff005to0025_from7M",
+    "start_checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_001/hold005_from6M/train/0626_0905_hold005_from6M_seed_1/ckpt-7000000",
+    "start_itr": 7000000,
+    "checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_002/backoff005to0025_from7M/train/0627_0137_backoff005to0025_from7M_seed_1/ckpt-8000000",
+    "target_updates": 8000000,
+    "candidate": {
+      "name": "backoff005to0025_from7M",
+      "start_checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_001/hold005_from6M/train/0626_0905_hold005_from6M_seed_1/ckpt-7000000",
+      "schedule_initial": [
+        1.0,
+        0.05,
+        0.05
+      ],
+      "schedule_final": [
+        1.0,
+        0.025,
+        0.025
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05
+    },
+    "mc_metrics": {
+      "beta_r": {
+        "mean_abs_mc_v": 0.2233,
+        "max_abs_mc_v": 0.9992,
+        "mean_mc": 0.3967,
+        "mean_v": 0.1739
+      },
+      "ey_epsi": {
+        "mean_abs_mc_v": 0.1964,
+        "max_abs_mc_v": 0.9751,
+        "mean_mc": 0.5589,
+        "mean_v": 0.3656
+      }
+    },
+    "tensorboard_last": {
+      "RL/Average Reward": 0.15000000596046448,
+      "Loss/RL": 0.009233697317540646,
+      "Loss/HJB": 0.00929327867925167,
+      "Loss/HJB_replay": null,
+      "Loss/BDR": 0.023045208305120468,
+      "Weights/RL": 1.0,
+      "Weights/HJB": 0.02500000037252903,
+      "Weights/BDR": 0.02500000037252903
+    }
+  },
+  {
+    "name": "restart_ramp0to0025",
+    "start_checkpoint": "logs/drift/td3_T01/up05M_scale10_mix334/ckpt-5000000",
+    "start_itr": 5000000,
+    "checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_002/restart_ramp0to0025/train/0627_0137_restart_ramp0to0025_seed_1/ckpt-6000000",
+    "target_updates": 6000000,
+    "candidate": {
+      "name": "restart_ramp0to0025",
+      "start_checkpoint": "logs/drift/td3_T01/up05M_scale10_mix334/ckpt-5000000",
+      "schedule_initial": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "schedule_final": [
+        1.0,
+        0.025,
+        0.025
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05
+    },
+    "mc_metrics": {
+      "beta_r": {
+
+exec
+/bin/bash -lc "sed -n '260,620p' scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/all_results.json" in /home/ubuntu/ProbReachPIRL/ProbReachPIRL
+ succeeded in 0ms:
+      "beta_r": {
+        "mean_abs_mc_v": 0.1242,
+        "max_abs_mc_v": 0.9967,
+        "mean_mc": 0.3556,
+        "mean_v": 0.2408
+      },
+      "ey_epsi": {
+        "mean_abs_mc_v": 0.1311,
+        "max_abs_mc_v": 0.9197,
+        "mean_mc": 0.5051,
+        "mean_v": 0.4246
+      }
+    },
+    "tensorboard_last": {
+      "RL/Average Reward": 0.1599999964237213,
+      "Loss/RL": 0.004878987092524767,
+      "Loss/HJB": 0.013665672391653061,
+      "Loss/HJB_replay": null,
+      "Loss/BDR": 0.018612805753946304,
+      "Weights/RL": 1.0,
+      "Weights/HJB": 0.02500000037252903,
+      "Weights/BDR": 0.02500000037252903
+    }
+  },
+  {
+    "name": "hold0025_from6M",
+    "start_checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_002/restart_ramp0to0025/train/0627_0137_restart_ramp0to0025_seed_1/ckpt-6000000",
+    "start_itr": 6000000,
+    "checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_003/hold0025_from6M/train/0627_1812_hold0025_from6M_seed_1/ckpt-7000000",
+    "target_updates": 7000000,
+    "candidate": {
+      "name": "hold0025_from6M",
+      "start_checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_002/restart_ramp0to0025/train/0627_0137_restart_ramp0to0025_seed_1/ckpt-6000000",
+      "schedule_initial": [
+        1.0,
+        0.025,
+        0.025
+      ],
+      "schedule_final": [
+        1.0,
+        0.025,
+        0.025
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05
+    },
+    "mc_metrics": {
+      "beta_r": {
+        "mean_abs_mc_v": 0.1726,
+        "max_abs_mc_v": 0.9964,
+        "mean_mc": 0.406,
+        "mean_v": 0.2347
+      },
+      "ey_epsi": {
+        "mean_abs_mc_v": 0.1362,
+        "max_abs_mc_v": 0.9149,
+        "mean_mc": 0.5689,
+        "mean_v": 0.4386
+      }
+    },
+    "tensorboard_last": {
+      "RL/Average Reward": 0.17000000178813934,
+      "Loss/RL": 0.010106244124472141,
+      "Loss/HJB": 0.013422248885035515,
+      "Loss/HJB_replay": null,
+      "Loss/BDR": 0.01093926839530468,
+      "Weights/RL": 1.0,
+      "Weights/HJB": 0.02500000037252903,
+      "Weights/BDR": 0.02500000037252903
+    }
+  },
+  {
+    "name": "ramp0025to0035",
+    "start_checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_002/restart_ramp0to0025/train/0627_0137_restart_ramp0to0025_seed_1/ckpt-6000000",
+    "start_itr": 6000000,
+    "checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_003/ramp0025to0035/train/0627_1812_ramp0025to0035_seed_1/ckpt-7000000",
+    "target_updates": 7000000,
+    "candidate": {
+      "name": "ramp0025to0035",
+      "start_checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_002/restart_ramp0to0025/train/0627_0137_restart_ramp0to0025_seed_1/ckpt-6000000",
+      "schedule_initial": [
+        1.0,
+        0.025,
+        0.025
+      ],
+      "schedule_final": [
+        1.0,
+        0.035,
+        0.035
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05
+    },
+    "mc_metrics": {
+      "beta_r": {
+        "mean_abs_mc_v": 0.1802,
+        "max_abs_mc_v": 0.999,
+        "mean_mc": 0.4001,
+        "mean_v": 0.2207
+      },
+      "ey_epsi": {
+        "mean_abs_mc_v": 0.1443,
+        "max_abs_mc_v": 0.8479,
+        "mean_mc": 0.5646,
+        "mean_v": 0.4253
+      }
+    },
+    "tensorboard_last": {
+      "RL/Average Reward": 0.10999999940395355,
+      "Loss/RL": 0.003928610123693943,
+      "Loss/HJB": 0.014649821445345879,
+      "Loss/HJB_replay": null,
+      "Loss/BDR": 0.02712498977780342,
+      "Weights/RL": 1.0,
+      "Weights/HJB": 0.03500000014901161,
+      "Weights/BDR": 0.03500000014901161
+    }
+  }
+]
+
+exec
+/bin/bash -lc "sed -n '1,220p' scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_003/results.json" in /home/ubuntu/ProbReachPIRL/ProbReachPIRL
+ succeeded in 0ms:
+[
+  {
+    "name": "hold0025_from6M",
+    "start_checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_002/restart_ramp0to0025/train/0627_0137_restart_ramp0to0025_seed_1/ckpt-6000000",
+    "start_itr": 6000000,
+    "checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_003/hold0025_from6M/train/0627_1812_hold0025_from6M_seed_1/ckpt-7000000",
+    "target_updates": 7000000,
+    "candidate": {
+      "name": "hold0025_from6M",
+      "start_checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_002/restart_ramp0to0025/train/0627_0137_restart_ramp0to0025_seed_1/ckpt-6000000",
+      "schedule_initial": [
+        1.0,
+        0.025,
+        0.025
+      ],
+      "schedule_final": [
+        1.0,
+        0.025,
+        0.025
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05
+    },
+    "mc_metrics": {
+      "beta_r": {
+        "mean_abs_mc_v": 0.1726,
+        "max_abs_mc_v": 0.9964,
+        "mean_mc": 0.406,
+        "mean_v": 0.2347
+      },
+      "ey_epsi": {
+        "mean_abs_mc_v": 0.1362,
+        "max_abs_mc_v": 0.9149,
+        "mean_mc": 0.5689,
+        "mean_v": 0.4386
+      }
+    },
+    "tensorboard_last": {
+      "RL/Average Reward": 0.17000000178813934,
+      "Loss/RL": 0.010106244124472141,
+      "Loss/HJB": 0.013422248885035515,
+      "Loss/HJB_replay": null,
+      "Loss/BDR": 0.01093926839530468,
+      "Weights/RL": 1.0,
+      "Weights/HJB": 0.02500000037252903,
+      "Weights/BDR": 0.02500000037252903
+    }
+  },
+  {
+    "name": "ramp0025to0035",
+    "start_checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_002/restart_ramp0to0025/train/0627_0137_restart_ramp0to0025_seed_1/ckpt-6000000",
+    "start_itr": 6000000,
+    "checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_003/ramp0025to0035/train/0627_1812_ramp0025to0035_seed_1/ckpt-7000000",
+    "target_updates": 7000000,
+    "candidate": {
+      "name": "ramp0025to0035",
+      "start_checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_002/restart_ramp0to0025/train/0627_0137_restart_ramp0to0025_seed_1/ckpt-6000000",
+      "schedule_initial": [
+        1.0,
+        0.025,
+        0.025
+      ],
+      "schedule_final": [
+        1.0,
+        0.035,
+        0.035
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05
+    },
+    "mc_metrics": {
+      "beta_r": {
+        "mean_abs_mc_v": 0.1802,
+        "max_abs_mc_v": 0.999,
+        "mean_mc": 0.4001,
+        "mean_v": 0.2207
+      },
+      "ey_epsi": {
+        "mean_abs_mc_v": 0.1443,
+        "max_abs_mc_v": 0.8479,
+        "mean_mc": 0.5646,
+        "mean_v": 0.4253
+      }
+    },
+    "tensorboard_last": {
+      "RL/Average Reward": 0.10999999940395355,
+      "Loss/RL": 0.003928610123693943,
+      "Loss/HJB": 0.014649821445345879,
+      "Loss/HJB_replay": null,
+      "Loss/BDR": 0.02712498977780342,
+      "Weights/RL": 1.0,
+      "Weights/HJB": 0.03500000014901161,
+      "Weights/BDR": 0.03500000014901161
+    }
+  }
+]
+
+codex
+I’m going to use the 7M `hold0025` checkpoint as the start for both candidates. One candidate keeps the stable 0.025 weights; the other tests a smaller step than the failed 0.035 ramp, so it probes progress without jumping back to the 0.05 line.
+apply patch
+patch: completed
+/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_004_plan.json
+diff --git a/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_004_plan.json b/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_004_plan.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..73044b4054a3ca12622405db6993d09a3f26bc5a
+--- /dev/null
++++ b/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_004_plan.json
+@@ -0,0 +1,37 @@
++{
++  "round_note": "Continue from the 7M hold0025 checkpoint: it has the strongest reward so far and recovered meanMC on both planes, while the 0.035 ramp hurt reward. Use one stable hold and one slower 0.03 probe to progress toward 10M without treating 10M as a hard stop.",
++  "candidates": [
++    {
++      "name": "hold0025_from7M",
++      "start_checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_003/hold0025_from6M/train/0627_1812_hold0025_from6M_seed_1/ckpt-7000000",
++      "schedule_initial": [
++        1.0,
++        0.025,
++        0.025
++      ],
++      "schedule_final": [
++        1.0,
++        0.025,
++        0.025
++      ],
++      "schedule_center": 500000,
++      "schedule_sharpness": 1e-05
++    },
++    {
++      "name": "slow0025to003",
++      "start_checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_003/hold0025_from6M/train/0627_1812_hold0025_from6M_seed_1/ckpt-7000000",
++      "schedule_initial": [
++        1.0,
++        0.025,
++        0.025
++      ],
++      "schedule_final": [
++        1.0,
++        0.03,
++        0.03
++      ],
++      "schedule_center": 500000,
++      "schedule_sharpness": 1e-05
++    }
++  ]
++}
+
+diff --git a/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_004_plan.json b/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_004_plan.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..73044b4054a3ca12622405db6993d09a3f26bc5a
+--- /dev/null
++++ b/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_004_plan.json
+@@ -0,0 +1,37 @@
++{
++  "round_note": "Continue from the 7M hold0025 checkpoint: it has the strongest reward so far and recovered meanMC on both planes, while the 0.035 ramp hurt reward. Use one stable hold and one slower 0.03 probe to progress toward 10M without treating 10M as a hard stop.",
++  "candidates": [
++    {
++      "name": "hold0025_from7M",
++      "start_checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_003/hold0025_from6M/train/0627_1812_hold0025_from6M_seed_1/ckpt-7000000",
++      "schedule_initial": [
++        1.0,
++        0.025,
++        0.025
++      ],
++      "schedule_final": [
++        1.0,
++        0.025,
++        0.025
++      ],
++      "schedule_center": 500000,
++      "schedule_sharpness": 1e-05
++    },
++    {
++      "name": "slow0025to003",
++      "start_checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_003/hold0025_from6M/train/0627_1812_hold0025_from6M_seed_1/ckpt-7000000",
++      "schedule_initial": [
++        1.0,
++        0.025,
++        0.025
++      ],
++      "schedule_final": [
++        1.0,
++        0.03,
++        0.03
++      ],
++      "schedule_center": 500000,
++      "schedule_sharpness": 1e-05
++    }
++  ]
++}
+
+codex
+The plan file is written. I’ll validate that it parses as JSON and contains exactly two candidates.
+exec
+/bin/bash -lc "jq '.candidates | length' scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_004_plan.json" in /home/ubuntu/ProbReachPIRL/ProbReachPIRL
+ succeeded in 0ms:
+2
+
+diff --git a/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_004_plan.json b/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_004_plan.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..73044b4054a3ca12622405db6993d09a3f26bc5a
+--- /dev/null
++++ b/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_004_plan.json
+@@ -0,0 +1,37 @@
++{
++  "round_note": "Continue from the 7M hold0025 checkpoint: it has the strongest reward so far and recovered meanMC on both planes, while the 0.035 ramp hurt reward. Use one stable hold and one slower 0.03 probe to progress toward 10M without treating 10M as a hard stop.",
++  "candidates": [
++    {
++      "name": "hold0025_from7M",
++      "start_checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_003/hold0025_from6M/train/0627_1812_hold0025_from6M_seed_1/ckpt-7000000",
++      "schedule_initial": [
++        1.0,
++        0.025,
++        0.025
++      ],
++      "schedule_final": [
++        1.0,
++        0.025,
++        0.025
++      ],
++      "schedule_center": 500000,
++      "schedule_sharpness": 1e-05
++    },
++    {
++      "name": "slow0025to003",
++      "start_checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_003/hold0025_from6M/train/0627_1812_hold0025_from6M_seed_1/ckpt-7000000",
++      "schedule_initial": [
++        1.0,
++        0.025,
++        0.025
++      ],
++      "schedule_final": [
++        1.0,
++        0.03,
++        0.03
++      ],
++      "schedule_center": 500000,
++      "schedule_sharpness": 1e-05
++    }
++  ]
++}
+
+codex
+Wrote and validated [round_004_plan.json](/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_004_plan.json). It contains exactly 2 candidates.
+diff --git a/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_004_plan.json b/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_004_plan.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..73044b4054a3ca12622405db6993d09a3f26bc5a
+--- /dev/null
++++ b/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_004_plan.json
+@@ -0,0 +1,37 @@
++{
++  "round_note": "Continue from the 7M hold0025 checkpoint: it has the strongest reward so far and recovered meanMC on both planes, while the 0.035 ramp hurt reward. Use one stable hold and one slower 0.03 probe to progress toward 10M without treating 10M as a hard stop.",
++  "candidates": [
++    {
++      "name": "hold0025_from7M",
++      "start_checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_003/hold0025_from6M/train/0627_1812_hold0025_from6M_seed_1/ckpt-7000000",
++      "schedule_initial": [
++        1.0,
++        0.025,
++        0.025
++      ],
++      "schedule_final": [
++        1.0,
++        0.025,
++        0.025
++      ],
++      "schedule_center": 500000,
++      "schedule_sharpness": 1e-05
++    },
++    {
++      "name": "slow0025to003",
++      "start_checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_003/hold0025_from6M/train/0627_1812_hold0025_from6M_seed_1/ckpt-7000000",
++      "schedule_initial": [
++        1.0,
++        0.025,
++        0.025
++      ],
++      "schedule_final": [
++        1.0,
++        0.03,
++        0.03
++      ],
++      "schedule_center": 500000,
++      "schedule_sharpness": 1e-05
++    }
++  ]
++}
+
+tokens used
+59,845
+Wrote and validated [round_004_plan.json](/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_004_plan.json). It contains exactly 2 candidates.
