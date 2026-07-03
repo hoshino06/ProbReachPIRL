@@ -34,12 +34,22 @@ parser.add_argument("--num_updates", default=1_000_000, type=int,
 parser.add_argument("--num_collocations", default=None, type=int, nargs=3,
                     metavar=("NPDE", "NTARGET", "NAVOID"),
                     help="Override PINN collocation counts.")
-parser.add_argument("--pinn_sample_mode", default="uniform", choices=("uniform", "replay"),
-                    help="Sample HJB PDE points uniformly or from replay memory.")
+parser.add_argument("--pinn_sample_mode", default="uniform", choices=("uniform", "replay", "replay_expand"),
+                    help="Sample HJB PDE points uniformly, from replay memory, or from an expanding replay neighborhood.")
 parser.add_argument("--pinn_replay_fraction", default=1.0, type=float,
-                    help="Fraction of HJB PDE points drawn from replay memory when pinn_sample_mode=replay.")
+                    help="Fraction of HJB PDE points drawn from replay memory when pinn_sample_mode is replay-like.")
 parser.add_argument("--pinn_replay_jitter", default=0.0, type=float,
                     help="Gaussian jitter in scaled state units for replay HJB PDE points.")
+parser.add_argument("--pinn_expand_jitter_initial", default=0.0, type=float,
+                    help="Initial Gaussian jitter for pinn_sample_mode=replay_expand.")
+parser.add_argument("--pinn_expand_jitter_final", default=0.15, type=float,
+                    help="Final Gaussian jitter for pinn_sample_mode=replay_expand.")
+parser.add_argument("--pinn_expand_center", default=500_000, type=int,
+                    help="Sigmoid center for replay_expand jitter schedule.")
+parser.add_argument("--pinn_expand_sharpness", default=1.0e-5, type=float,
+                    help="Sigmoid sharpness for replay_expand jitter schedule.")
+parser.add_argument("--pinn_expand_time_base", default="local", choices=("global", "local"),
+                    help="Use absolute update count or fine-tune-local count for replay_expand jitter scheduling.")
 parser.add_argument("--learner_num_gpus", default=None, type=float,
                     help="Ray GPU resource assigned to each Learner actor. Omit for legacy behavior.")
 parser.add_argument("--hjb_laplacian_mode", default="loop", choices=("loop", "batched"),
@@ -312,9 +322,18 @@ def main():
     print(f"Updates: {args.num_updates}")
     print(f"Colloc.: {tuple(args.num_collocations) if args.num_collocations is not None else case_cfg.num_collocations}")
     print(f"PINN sample mode: {args.pinn_sample_mode}")
-    if args.pinn_sample_mode == "replay":
+    if args.pinn_sample_mode in ("replay", "replay_expand"):
         print(f"PINN replay fraction: {args.pinn_replay_fraction}")
         print(f"PINN replay jitter: {args.pinn_replay_jitter}")
+    if args.pinn_sample_mode == "replay_expand":
+        print(
+            "PINN expand jitter: "
+            f"initial={args.pinn_expand_jitter_initial}, "
+            f"final={args.pinn_expand_jitter_final}, "
+            f"center={args.pinn_expand_center}, "
+            f"sharpness={args.pinn_expand_sharpness}, "
+            f"time_base={args.pinn_expand_time_base}"
+        )
     print(f"Learner GPUs: {args.learner_num_gpus if args.learner_num_gpus is not None else 'legacy'}")
     print(f"HJB Lap.: {args.hjb_laplacian_mode}")
     print(f"Reset scale: {args.drift_reset_scale}")
@@ -377,6 +396,11 @@ def main():
         pinn_sample_mode=args.pinn_sample_mode,
         pinn_replay_fraction=args.pinn_replay_fraction,
         pinn_replay_jitter=args.pinn_replay_jitter,
+        pinn_expand_jitter_initial=args.pinn_expand_jitter_initial,
+        pinn_expand_jitter_final=args.pinn_expand_jitter_final,
+        pinn_expand_center=args.pinn_expand_center,
+        pinn_expand_sharpness=args.pinn_expand_sharpness,
+        pinn_expand_time_base=args.pinn_expand_time_base,
         initial_exploration_num=case_cfg.initial_exploration_num,
         initial_exploration_policy=args.initial_exploration_policy,
         exploration_noise=case_cfg.exploration_noise,

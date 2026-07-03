@@ -2,6 +2,8 @@ plot/
 scripts/
 logs/
 *_org.py
+**/eval/mc_vs_value_contours.pdf
+**/eval/mc_vs_value_contours.png
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

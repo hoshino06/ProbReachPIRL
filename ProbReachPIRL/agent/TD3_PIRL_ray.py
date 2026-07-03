@@ -692,9 +692,9 @@ class Learner:
                 nAvoid=nAvoid,
             )
 
-        if pinn_sample_mode != "replay":
+        if pinn_sample_mode not in ("replay", "replay_expand"):
             raise ValueError(
-                "pinn_sample_mode must be 'uniform' or 'replay', "
+                "pinn_sample_mode must be 'uniform', 'replay', or 'replay_expand', "
                 f"got {pinn_sample_mode!r}."
             )
         if len(self.agent.replay_memory) == 0:
@@ -897,6 +897,11 @@ def train_distributed(
     pinn_sample_mode: str = "uniform",
     pinn_replay_fraction: float = 1.0,
     pinn_replay_jitter: float = 0.0,
+    pinn_expand_jitter_initial: float = 0.0,
+    pinn_expand_jitter_final: float = 0.15,
+    pinn_expand_center: int = 500_000,
+    pinn_expand_sharpness: float = 1.0e-5,
+    pinn_expand_time_base: str = "local",
     # ---- RL config ----
     initial_exploration_num=100,
     initial_exploration_policy="random",
@@ -925,6 +930,11 @@ def train_distributed(
                 f"pinn_sample_mode: {pinn_sample_mode}",
                 f"pinn_replay_fraction: {pinn_replay_fraction}",
                 f"pinn_replay_jitter: {pinn_replay_jitter}",
+                f"pinn_expand_jitter_initial: {pinn_expand_jitter_initial}",
+                f"pinn_expand_jitter_final: {pinn_expand_jitter_final}",
+                f"pinn_expand_center: {pinn_expand_center}",
+                f"pinn_expand_sharpness: {pinn_expand_sharpness}",
+                f"pinn_expand_time_base: {pinn_expand_time_base}",
                 f"initial_exploration_num: {initial_exploration_num}",
                 f"initial_exploration_policy: {initial_exploration_policy}",
                 f"exploration_noise: {exploration_noise}",
@@ -965,6 +975,26 @@ def train_distributed(
         #weight_delta = 1.0
         reward_window = deque(maxlen=100)
         q0_window     = deque(maxlen=100)
+        start, end = (agent.itr, agent.itr+num_iterations)
+
+        def scheduled_expand_jitter(update_count):
+            if pinn_sample_mode != "replay_expand":
+                return float(pinn_replay_jitter)
+            if pinn_expand_time_base == "global":
+                schedule_count = update_count
+            elif pinn_expand_time_base == "local":
+                schedule_count = update_count - start
+            else:
+                raise ValueError(
+                    "pinn_expand_time_base must be 'global' or 'local', "
+                    f"got {pinn_expand_time_base!r}."
+                )
+            sigm = 1.0 / (1.0 + np.exp(-pinn_expand_sharpness * (schedule_count - pinn_expand_center)))
+            if sigm < 0.01:
+                sigm = 0.0
+            elif sigm > 0.99:
+                sigm = 1.0
+            return float(pinn_expand_jitter_initial + (pinn_expand_jitter_final - pinn_expand_jitter_initial) * sigm)
         
         ######################################
         # Initial exploration
@@ -1002,6 +1032,7 @@ def train_distributed(
         ##########################################
         # Start async learner process
         ##########################################
+        current_pinn_replay_jitter = scheduled_expand_jitter(start)
         learner_task = learner.learn_once.remote(
             minibatch_size=minibatch_size,
             policy_update_freq=policy_update_freq,
@@ -1010,13 +1041,12 @@ def train_distributed(
             num_collocations=num_collocations,
             pinn_sample_mode=pinn_sample_mode,
             pinn_replay_fraction=pinn_replay_fraction,
-            pinn_replay_jitter=pinn_replay_jitter,
+            pinn_replay_jitter=current_pinn_replay_jitter,
         )
         
         ##########################################
         # Training loop
         ##########################################    
-        start, end = (agent.itr, agent.itr+num_iterations)
         pbar = tqdm(range(start+1, end+1), ascii=True, unit='updates') if verbose >= 1 else None
         update_count = start
         train_start_time = time.perf_counter()
@@ -1068,7 +1098,7 @@ def train_distributed(
                                 num_collocations,
                                 pinn_sample_mode=pinn_sample_mode,
                                 pinn_replay_fraction=pinn_replay_fraction,
-                                pinn_replay_jitter=pinn_replay_jitter,
+                                pinn_replay_jitter=current_pinn_replay_jitter,
                             )
                         )
 
@@ -1083,8 +1113,9 @@ def train_distributed(
                     summary_writer.add_scalar("RL/Episode Q0",     np.nanmean(q0_window),  update_count)
                     summary_writer.add_scalar("Loss/RL",  loss["td"],  update_count)
                     summary_writer.add_scalar("Loss/HJB", hjb_uniform, update_count)
-                    if pinn_sample_mode == "replay":
+                    if pinn_sample_mode in ("replay", "replay_expand"):
                         summary_writer.add_scalar("Loss/HJB_replay", loss["hjb"], update_count)
+                    summary_writer.add_scalar("PINN/Replay Jitter", current_pinn_replay_jitter, update_count)
                     summary_writer.add_scalar("Loss/BDR", loss["bdr"], update_count)
                     summary_writer.add_scalar("Weights/RL",  weight_td3, update_count)
                     summary_writer.add_scalar("Weights/HJB", weight_hjb, update_count)
@@ -1125,6 +1156,7 @@ def train_distributed(
                 #####################################
                 # Restart learner process 
                 #####################################
+                current_pinn_replay_jitter = scheduled_expand_jitter(update_count)
                 learner_task = learner.learn_once.remote(
                     minibatch_size=minibatch_size,
                     policy_update_freq=policy_update_freq,
@@ -1133,7 +1165,7 @@ def train_distributed(
                     num_collocations=num_collocations,
                     pinn_sample_mode=pinn_sample_mode,
                     pinn_replay_fraction=pinn_replay_fraction,
-                    pinn_replay_jitter=pinn_replay_jitter,
+                    pinn_replay_jitter=current_pinn_replay_jitter,
                 )
             
         if pbar is not None:

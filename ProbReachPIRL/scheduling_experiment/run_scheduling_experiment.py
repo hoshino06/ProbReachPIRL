@@ -34,6 +34,17 @@ except ModuleNotFoundError:  # pragma: no cover - for Python < 3.11 environments
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
+CANDIDATE_ENV_KEYS = {
+    "pinn_sample_mode": "PINN_SAMPLE_MODE",
+    "pinn_replay_fraction": "PINN_REPLAY_FRACTION",
+    "pinn_replay_jitter": "PINN_REPLAY_JITTER",
+    "pinn_expand_jitter_initial": "PINN_EXPAND_JITTER_INITIAL",
+    "pinn_expand_jitter_final": "PINN_EXPAND_JITTER_FINAL",
+    "pinn_expand_center": "PINN_EXPAND_CENTER",
+    "pinn_expand_sharpness": "PINN_EXPAND_SHARPNESS",
+    "pinn_expand_time_base": "PINN_EXPAND_TIME_BASE",
+}
+
 MC_LINE_RE = re.compile(
     r"^(?P<plane>[^:]+): mean\|MC-V\|=(?P<mean_abs>[0-9.eE+-]+), "
     r"max\|MC-V\|=(?P<max_abs>[0-9.eE+-]+), "
@@ -142,6 +153,7 @@ def read_tb_last_scalars(run_dir: Path) -> dict[str, float | None]:
         "Weights/RL",
         "Weights/HJB",
         "Weights/BDR",
+        "PINN/Replay Jitter",
     ]
     out: dict[str, float | None] = {t: None for t in tags}
     try:
@@ -190,13 +202,14 @@ def make_codex_prompt(
             for path in reference_paths:
                 context_block += f"- {path}\n"
 
-    return f"""You are controlling the next round of PIRL weight scheduling.
+    return f"""You are controlling the next round of PIRL weight and collocation-distribution scheduling.
 
 Objective:
 - Treat {target_total_updates} total updates as the first milestone, not a hard stop.
 - By that milestone, outperform the TD3 baseline from {baseline_checkpoint}.
 - If reward and MC reachability remain stable, keep progressing beyond the milestone.
 - Keep final reward no worse than TD3 while reducing value calibration error mean|MC-V|.
+- For replay_expand experiments, start close to replay-HJB and expand the HJB collocation neighborhood cautiously.
 
 Output:
 - Write ONLY valid JSON to: {next_plan_path}
@@ -212,7 +225,15 @@ Schema:
       "schedule_initial": [1.0, hjb0, bdr0],
       "schedule_final": [1.0, hjb1, bdr1],
       "schedule_center": 500000,
-      "schedule_sharpness": 1e-5
+      "schedule_sharpness": 1e-5,
+      "pinn_sample_mode": "replay_expand",
+      "pinn_replay_fraction": 1.0,
+      "pinn_replay_jitter": 0.0,
+      "pinn_expand_jitter_initial": 0.0,
+      "pinn_expand_jitter_final": 0.05,
+      "pinn_expand_center": 500000,
+      "pinn_expand_sharpness": 1e-5,
+      "pinn_expand_time_base": "local"
     }}
   ]
 }}
@@ -221,8 +242,10 @@ Selection rules:
 - Continue from the best safe checkpoint when reward and MC are stable.
 - If reward or meanMC degraded, reduce weights or slow the schedule before trying larger weights.
 - Increase HJB/BDR gradually.
+- Increase replay_expand jitter gradually; prefer holding or backing off jitter before increasing HJB/BDR when reward or meanMC weakens.
+- Candidate-level pinn_* fields are optional; omitted fields inherit [training_env] defaults from the TOML config.
 - Use at most one TD3-restart control per round, unless all scheduling checkpoints collapsed.
-- Do not repeat an existing start_checkpoint + schedule_initial + schedule_final combination unless round_note explains why.
+- Do not repeat an existing start_checkpoint + schedule_initial + schedule_final + pinn_expand_jitter_final combination unless round_note explains why.
 {context_block}
 
 Completed results JSON:
@@ -285,6 +308,18 @@ def prepare_plan(
     return plan
 
 
+def apply_candidate_env_overrides(env: dict[str, str], candidate: dict[str, Any]) -> dict[str, str]:
+    effective = dict(env)
+    candidate_training_env = candidate.get("training_env") or {}
+    for key, value in candidate_training_env.items():
+        if value is not None:
+            effective[str(key)] = str(value)
+    for candidate_key, env_key in CANDIDATE_ENV_KEYS.items():
+        if candidate_key in candidate and candidate[candidate_key] is not None:
+            effective[env_key] = str(candidate[candidate_key])
+    return effective
+
+
 def run_candidate(candidate: dict[str, Any], round_dir: Path, args: argparse.Namespace) -> dict[str, Any]:
     name = candidate["name"]
     trial_dir = round_dir / name
@@ -300,6 +335,7 @@ def run_candidate(candidate: dict[str, Any], round_dir: Path, args: argparse.Nam
     for key, value in getattr(args, "training_env", {}).items():
         if value is not None:
             env[str(key)] = str(value)
+    env = apply_candidate_env_overrides(env, candidate)
     env.update({
         "TARGET_UPDATES": str(target_updates),
         "LOG_DIR_OVERRIDE": str(trial_log_dir.resolve()),
@@ -338,6 +374,11 @@ def run_candidate(candidate: dict[str, Any], round_dir: Path, args: argparse.Nam
         "checkpoint": str(ckpt),
         "target_updates": target_updates,
         "candidate": candidate,
+        "effective_training_env": {
+            key: env[key]
+            for key in sorted(set(args.training_env) | set(CANDIDATE_ENV_KEYS.values()))
+            if key in env
+        },
         "mc_metrics": parse_mc_stdout(proc.stdout),
         "tensorboard_last": read_tb_last_scalars(trial_log_dir),
     }

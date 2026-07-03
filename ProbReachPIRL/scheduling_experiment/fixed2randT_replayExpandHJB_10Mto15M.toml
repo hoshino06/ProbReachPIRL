@@ -1,0 +1,102 @@
+# PIRL scheduling experiment config for fixed2randT_replayExpandHJB from 10M to 15M.
+# Continue from the best 10M replay-HJB restart2 checkpoint and cautiously expand
+# HJB collocation points from the replay distribution into a local neighborhood.
+# Run with:
+#   conda activate pirl
+#   python scheduling_experiment/run_scheduling_experiment.py --config scheduling_experiment/fixed2randT_replayExpandHJB_10Mto15M.toml
+
+[experiment]
+baseline_checkpoint = "scheduling_experiment/fixed2randT_replayHJB_7Mto10M_restart2/round_002/hold0015_R3/train/0701_0606_hold0015_R3_seed_1/ckpt-10000000"
+rounds = 5
+updates_per_round = 1_000_000
+target_total_updates = 15_000_000
+max_parallel_candidates = 2
+learner_num_gpus = 0.16
+advisor_command = "codex exec"
+
+# One checkpoint per continuation block and lighter TensorBoard logs.
+checkpoint_freq = 1_000_000
+log_freq = 5_000
+
+[training_env]
+CASE = "drift"
+METHOD = "scheduling"
+SEEDS = "1"
+NUM_WORKERS = 2
+
+DRIFT_DT = 0.1
+DRIFT_RESET_SCALE = 1.0
+DRIFT_RESET_MODE = "mixture"
+DRIFT_RESET_MIXTURE_PROBS = "0.3,0.3,0.4" # beta_r, ey_epsi, full
+DRIFT_RESET_T_MODE = "random"
+DRIFT_RESET_T_MIN = 0.0
+DRIFT_RESET_T_MAX = 5.0
+
+INITIAL_EXPLORATION_POLICY = "policy"
+PINN_SAMPLE_MODE = "replay_expand"
+PINN_REPLAY_FRACTION = 1.0
+PINN_REPLAY_JITTER = 0.0
+
+HJB_LAPLACIAN_MODE = "loop"
+SCHEDULE_TIME_BASE = "local"
+
+[evaluation]
+T = 5.0
+num_grid = 31
+num_rollouts = 16
+device = "cuda"
+
+[advisor_context]
+manual_notes = """
+- This is a local continuation experiment from the strongest 10M fixed2randT_replayHJB_restart2 checkpoint.
+- The 10M hold0015_R3 checkpoint had good reward and the best beta-r meanMC among the restart2 10M checkpoints; ramp00175_R3 had lower HJB/BDR losses but slightly worse beta-r calibration.
+- The goal is not to chase lower uniform HJB loss aggressively. First preserve MC reachability and reward, then widen the HJB collocation distribution.
+- Treat PINN/Replay Jitter like a loss weight: hold or back off jitter when reward, beta-r meanMC, or ey-epsi meanMC weakens.
+- Prefer small jitter finals such as 0.005, 0.01, 0.02, or 0.03 before trying wider neighborhoods.
+- Keep HJB/BDR near the successful replay-HJB range around 0.0015 unless the run remains stable for a full round.
+- Compare every branch against pure replay-HJB restart2 continuation around 10M to 12M before interpreting lower Loss/HJB as an improvement.
+"""
+reference_paths = [
+  "logs/drift/README.md",
+  "scheduling_experiment/fixed2randT_replayHJB_7Mto10M_restart2.toml",
+  "scheduling_experiment/fixed2randT_replayHJB_7Mto10M_restart2/all_results.json",
+  "scheduling_experiment/fixed2randT_replayHJB_7Mto10M_restart2/round_002/results.json",
+  "scheduling_experiment/fixed2randT_replayHJB_7Mto10M_restart2/round_003/results.json",
+  "scheduling_experiment/fixed2randT_replayHJB_7Mto10M_restart2/round_004/results.json",
+  "scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/all_results.json",
+]
+
+[initial_plan]
+round_note = "Start from the best 10M replay-HJB restart2 checkpoint and test two small replay-neighborhood expansions while holding HJB/BDR in the successful 0.0015 range."
+
+[[initial_plan.candidates]]
+name = "hold0015_expand001_R1"
+start_checkpoint = "scheduling_experiment/fixed2randT_replayHJB_7Mto10M_restart2/round_002/hold0015_R3/train/0701_0606_hold0015_R3_seed_1/ckpt-10000000"
+schedule_initial = [1.0, 0.0015, 0.0015]
+schedule_final = [1.0, 0.0015, 0.0015]
+schedule_center = 500_000
+schedule_sharpness = 0.00001
+pinn_sample_mode = "replay_expand"
+pinn_replay_fraction = 1.0
+pinn_replay_jitter = 0.0
+pinn_expand_jitter_initial = 0.0
+pinn_expand_jitter_final = 0.01
+pinn_expand_center = 500_000
+pinn_expand_sharpness = 0.00001
+pinn_expand_time_base = "local"
+
+[[initial_plan.candidates]]
+name = "hold0015_expand002_R1"
+start_checkpoint = "scheduling_experiment/fixed2randT_replayHJB_7Mto10M_restart2/round_002/hold0015_R3/train/0701_0606_hold0015_R3_seed_1/ckpt-10000000"
+schedule_initial = [1.0, 0.0015, 0.0015]
+schedule_final = [1.0, 0.0015, 0.0015]
+schedule_center = 500_000
+schedule_sharpness = 0.00001
+pinn_sample_mode = "replay_expand"
+pinn_replay_fraction = 1.0
+pinn_replay_jitter = 0.0
+pinn_expand_jitter_initial = 0.0
+pinn_expand_jitter_final = 0.02
+pinn_expand_center = 500_000
+pinn_expand_sharpness = 0.00001
+pinn_expand_time_base = "local"

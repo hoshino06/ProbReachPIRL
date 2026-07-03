@@ -1,0 +1,101 @@
+# PIRL scheduling experiment config for fixed2randT_replayExpandHJB from 5M to 10M.
+# Start from the fixedT TD3 5M checkpoint, switch reset T to random during
+# scheduling, and compare cautious replay-neighborhood HJB sampling against the
+# replay-HJB restart2 path at the 10M milestone.
+# Run with:
+#   conda activate pirl
+#   python scheduling_experiment/run_scheduling_experiment.py --config scheduling_experiment/fixed2randT_replayExpandHJB_5Mto10M.toml
+
+[experiment]
+baseline_checkpoint = "logs/drift/td3_T01/up05M_scale10_mix334/ckpt-5000000"
+rounds = 5
+updates_per_round = 1_000_000
+target_total_updates = 10_000_000
+max_parallel_candidates = 2
+learner_num_gpus = 0.16
+advisor_command = "codex exec"
+
+# One checkpoint per continuation block and lighter TensorBoard logs.
+checkpoint_freq = 1_000_000
+log_freq = 5_000
+
+[training_env]
+CASE = "drift"
+METHOD = "scheduling"
+SEEDS = "1"
+NUM_WORKERS = 2
+
+DRIFT_DT = 0.1
+DRIFT_RESET_SCALE = 1.0
+DRIFT_RESET_MODE = "mixture"
+DRIFT_RESET_MIXTURE_PROBS = "0.3,0.3,0.4" # beta_r, ey_epsi, full
+DRIFT_RESET_T_MODE = "random"
+DRIFT_RESET_T_MIN = 0.0
+DRIFT_RESET_T_MAX = 5.0
+
+INITIAL_EXPLORATION_POLICY = "policy"
+PINN_SAMPLE_MODE = "replay_expand"
+PINN_REPLAY_FRACTION = 1.0
+PINN_REPLAY_JITTER = 0.0
+
+HJB_LAPLACIAN_MODE = "loop"
+SCHEDULE_TIME_BASE = "local"
+
+[evaluation]
+T = 5.0
+num_grid = 31
+num_rollouts = 16
+device = "cuda"
+
+[advisor_context]
+manual_notes = """
+- This is the direct 5M-to-10M replay_expand comparison against fixed2randT_replayHJB_7Mto10M_restart2.
+- The earlier fixed2randT_replayHJB_5Mto10M run collapsed when HJB/BDR were too large. The restart path improved only after using very small HJB/BDR values around 0.0001 to 0.002.
+- Use the same fixedT TD3 5M baseline and randT reset as the replay-HJB restart experiments so the comparison isolates HJB collocation distribution.
+- Start almost indistinguishable from replay-HJB. Use tiny jitter finals such as 0.005 or 0.01 before considering 0.02.
+- If reward or meanMC degrades, prefer reducing HJB/BDR or holding jitter over expanding further.
+- At 10M, compare primarily against restart2 hold0015_R3 and ramp00175_R3, not against collapsed low-MC branches with low mean|MC-V|.
+"""
+reference_paths = [
+  "logs/drift/README.md",
+  "scheduling_experiment/fixed2randT_replayHJB_5Mto10M_restart.toml",
+  "scheduling_experiment/fixed2randT_replayHJB_5Mto10M_restart/all_results.json",
+  "scheduling_experiment/fixed2randT_replayHJB_7Mto10M_restart2.toml",
+  "scheduling_experiment/fixed2randT_replayHJB_7Mto10M_restart2/all_results.json",
+  "scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/all_results.json",
+]
+
+[initial_plan]
+round_note = "Restart from fixedT TD3 5M with very small HJB/BDR and tiny replay-neighborhood expansion. The first round should test whether replay_expand preserves the replay-HJB restart behavior."
+
+[[initial_plan.candidates]]
+name = "ramp0to0001_expand0005"
+start_checkpoint = ""
+schedule_initial = [1.0, 0.0, 0.0]
+schedule_final = [1.0, 0.0001, 0.0001]
+schedule_center = 500_000
+schedule_sharpness = 0.00001
+pinn_sample_mode = "replay_expand"
+pinn_replay_fraction = 1.0
+pinn_replay_jitter = 0.0
+pinn_expand_jitter_initial = 0.0
+pinn_expand_jitter_final = 0.005
+pinn_expand_center = 500_000
+pinn_expand_sharpness = 0.00001
+pinn_expand_time_base = "local"
+
+[[initial_plan.candidates]]
+name = "ramp0to0001_expand001"
+start_checkpoint = ""
+schedule_initial = [1.0, 0.0, 0.0]
+schedule_final = [1.0, 0.0001, 0.0001]
+schedule_center = 500_000
+schedule_sharpness = 0.00001
+pinn_sample_mode = "replay_expand"
+pinn_replay_fraction = 1.0
+pinn_replay_jitter = 0.0
+pinn_expand_jitter_initial = 0.0
+pinn_expand_jitter_final = 0.01
+pinn_expand_center = 500_000
+pinn_expand_sharpness = 0.00001
+pinn_expand_time_base = "local"
