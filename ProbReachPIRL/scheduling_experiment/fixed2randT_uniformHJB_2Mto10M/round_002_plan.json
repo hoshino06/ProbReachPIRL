@@ -1,0 +1,37 @@
+{
+  "round_note": "Continue from hold0005 ckpt-4000000: reward improved to 0.17 and MC/calibration stayed stable, while the 0.0075 branch cut reward to 0.07. Advance one safe hold and one smaller 0.006 probe before retrying larger weights.",
+  "candidates": [
+    {
+      "name": "hold0005_5m",
+      "start_checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_2Mto10M/round_001/hold0005/train/0627_0151_hold0005_seed_1/ckpt-4000000",
+      "schedule_initial": [
+        1.0,
+        0.005,
+        0.005
+      ],
+      "schedule_final": [
+        1.0,
+        0.005,
+        0.005
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05
+    },
+    {
+      "name": "step0006",
+      "start_checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_2Mto10M/round_001/hold0005/train/0627_0151_hold0005_seed_1/ckpt-4000000",
+      "schedule_initial": [
+        1.0,
+        0.005,
+        0.005
+      ],
+      "schedule_final": [
+        1.0,
+        0.006,
+        0.006
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05
+    }
+  ]
+}

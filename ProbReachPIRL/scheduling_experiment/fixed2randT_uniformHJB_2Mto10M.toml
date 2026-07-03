@@ -1,0 +1,88 @@
+# PIRL scheduling experiment config for fixed2randT_uniformHJB from 2M.
+# Start from an early fixedT TD3 checkpoint, switch reset T to random during
+# scheduling, and sample HJB points uniformly over the domain.
+# Run with:
+#   conda activate pirl
+#   python scheduling_experiment/run_scheduling_experiment.py --config scheduling_experiment/fixed2randT_uniformHJB_2Mto10M.toml
+
+[experiment]
+baseline_checkpoint = "logs/drift/td3_T01/up03M_scale10_mix334/ckpt-2000000"
+rounds = 10
+updates_per_round = 1_000_000
+target_total_updates = 10_000_000
+max_parallel_candidates = 2
+learner_num_gpus = 0.16
+advisor_command = "codex exec"
+
+# One checkpoint per continuation block and lighter TensorBoard logs.
+checkpoint_freq = 1_000_000
+log_freq = 5_000
+
+[training_env]
+CASE = "drift"
+METHOD = "scheduling"
+SEEDS = "1"
+NUM_WORKERS = 2
+
+DRIFT_DT = 0.1
+DRIFT_RESET_SCALE = 1.0
+DRIFT_RESET_MODE = "mixture"
+DRIFT_RESET_MIXTURE_PROBS = "0.3,0.3,0.4" # beta_r, ey_epsi, full
+DRIFT_RESET_T_MODE = "random"
+DRIFT_RESET_T_MIN = 0.0
+DRIFT_RESET_T_MAX = 5.0
+
+INITIAL_EXPLORATION_POLICY = "policy"
+PINN_SAMPLE_MODE = "uniform"
+PINN_REPLAY_FRACTION = 1.0
+PINN_REPLAY_JITTER = 0.0
+
+HJB_LAPLACIAN_MODE = "loop"
+SCHEDULE_TIME_BASE = "local"
+
+[evaluation]
+T = 5.0
+num_grid = 31
+num_rollouts = 16
+device = "cuda"
+
+[advisor_context]
+manual_notes = """
+- This is a fixed2randT_uniformHJB scheduling study from the early 2M fixedT TD3 checkpoint.
+- Start from fixedT TD3, switch reset T to random during scheduling, and use uniform HJB samples.
+- Treat 10M total updates as the first milestone, not a hard stop; if training remains healthy, continuing toward 12M is acceptable.
+- Compare against randT_replayHJB_2Mto10M to separate early fixedT-to-randT switching from the randT replay-HJB baseline.
+- Compare against fixed2randT_replayHJB and fixed2randT_uniformHJB_5Mto10M to isolate the HJB sampling distribution and the earlier 2M start.
+- Keep RL weight at 1.0 and back off if reward or meanMC reachability degrades.
+- Because the 2M checkpoint is earlier and less stable than 5M, prefer conservative initial HJB/BDR weights before trying 0.05.
+"""
+reference_paths = [
+  "logs/drift/README.md",
+  "logs/drift/scheduling_randT_replayHJB",
+  "logs/drift/scheduling_fixed2randT_uniformHJB",
+  "logs/drift/scheduling_fixed2randT_replayHJB",
+  "logs/drift/scheduling_fixedT_uniformHJB",
+  "logs/drift/td3_T01_randT/",
+  "logs/drift/td3_T01/",
+  "scheduling_experiment/randT_replayHJB_2Mto10M.toml",
+  "scheduling_experiment/fixed2randT_uniformHJB_5Mto10M.toml",
+]
+
+[initial_plan]
+round_note = "Early-start fixedT-to-randT uniform-HJB sweep from 2M toward the 10M milestone."
+
+[[initial_plan.candidates]]
+name = "ramp0to001"
+start_checkpoint = ""
+schedule_initial = [1.0, 0.0, 0.0]
+schedule_final = [1.0, 0.01, 0.01]
+schedule_center = 500_000
+schedule_sharpness = 0.00001
+
+[[initial_plan.candidates]]
+name = "ramp0to0005"
+start_checkpoint = ""
+schedule_initial = [1.0, 0.0, 0.0]
+schedule_final = [1.0, 0.005, 0.005]
+schedule_center = 500_000
+schedule_sharpness = 0.00001

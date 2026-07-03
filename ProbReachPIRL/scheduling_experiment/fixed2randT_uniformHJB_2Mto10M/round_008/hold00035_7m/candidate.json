@@ -1,0 +1,16 @@
+{
+  "name": "hold00035_7m",
+  "start_checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_2Mto10M/round_007/earlybackoff00035/train/0701_0546_earlybackoff00035_seed_1/ckpt-6000000",
+  "schedule_initial": [
+    1.0,
+    0.0035,
+    0.0035
+  ],
+  "schedule_final": [
+    1.0,
+    0.0035,
+    0.0035
+  ],
+  "schedule_center": 500000,
+  "schedule_sharpness": 1e-05
+}

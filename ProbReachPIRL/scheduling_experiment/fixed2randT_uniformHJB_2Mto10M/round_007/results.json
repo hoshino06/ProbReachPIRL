@@ -1,0 +1,96 @@
+[
+  {
+    "name": "backoff0003_7m",
+    "start_checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_2Mto10M/round_005/hold00045_6m/train/0629_2024_hold00045_6m_seed_1/ckpt-6000000",
+    "start_itr": 6000000,
+    "checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_2Mto10M/round_007/backoff0003_7m/train/0701_0546_backoff0003_7m_seed_1/ckpt-7000000",
+    "target_updates": 7000000,
+    "candidate": {
+      "name": "backoff0003_7m",
+      "start_checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_2Mto10M/round_005/hold00045_6m/train/0629_2024_hold00045_6m_seed_1/ckpt-6000000",
+      "schedule_initial": [
+        1.0,
+        0.0045,
+        0.0045
+      ],
+      "schedule_final": [
+        1.0,
+        0.003,
+        0.003
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05
+    },
+    "mc_metrics": {
+      "beta_r": {
+        "mean_abs_mc_v": 0.1095,
+        "max_abs_mc_v": 0.9553,
+        "mean_mc": 0.2525,
+        "mean_v": 0.1432
+      },
+      "ey_epsi": {
+        "mean_abs_mc_v": 0.1856,
+        "max_abs_mc_v": 0.9534,
+        "mean_mc": 0.5637,
+        "mean_v": 0.3814
+      }
+    },
+    "tensorboard_last": {
+      "RL/Average Reward": 0.05999999865889549,
+      "Loss/RL": 0.010361851193010807,
+      "Loss/HJB": 0.0039498815312981606,
+      "Loss/HJB_replay": null,
+      "Loss/BDR": 0.075564444065094,
+      "Weights/RL": 1.0,
+      "Weights/HJB": 0.003000000026077032,
+      "Weights/BDR": 0.003000000026077032
+    }
+  },
+  {
+    "name": "earlybackoff00035",
+    "start_checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_2Mto10M/round_002/hold0005_5m/train/0627_1840_hold0005_5m_seed_1/ckpt-5000000",
+    "start_itr": 5000000,
+    "checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_2Mto10M/round_007/earlybackoff00035/train/0701_0546_earlybackoff00035_seed_1/ckpt-6000000",
+    "target_updates": 6000000,
+    "candidate": {
+      "name": "earlybackoff00035",
+      "start_checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_2Mto10M/round_002/hold0005_5m/train/0627_1840_hold0005_5m_seed_1/ckpt-5000000",
+      "schedule_initial": [
+        1.0,
+        0.005,
+        0.005
+      ],
+      "schedule_final": [
+        1.0,
+        0.0035,
+        0.0035
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05
+    },
+    "mc_metrics": {
+      "beta_r": {
+        "mean_abs_mc_v": 0.0969,
+        "max_abs_mc_v": 0.9236,
+        "mean_mc": 0.2523,
+        "mean_v": 0.1561
+      },
+      "ey_epsi": {
+        "mean_abs_mc_v": 0.1594,
+        "max_abs_mc_v": 0.9315,
+        "mean_mc": 0.5714,
+        "mean_v": 0.4156
+      }
+    },
+    "tensorboard_last": {
+      "RL/Average Reward": 0.18000000715255737,
+      "Loss/RL": 0.006161837372928858,
+      "Loss/HJB": 0.04782724380493164,
+      "Loss/HJB_replay": null,
+      "Loss/BDR": 0.05578359216451645,
+      "Weights/RL": 1.0,
+      "Weights/HJB": 0.0035000001080334187,
+      "Weights/BDR": 0.0035000001080334187
+    }
+  }
+]
