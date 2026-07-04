@@ -1,0 +1,16 @@
+{
+  "name": "slow00075to00085_10m",
+  "start_checkpoint": "/home/user/hoshino/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/randT_replayHJB_2Mto10M/round_007/recover00075_9m/train/0701_1536_recover00075_9m_seed_1/ckpt-10000000",
+  "schedule_initial": [
+    1.0,
+    0.0075,
+    0.0075
+  ],
+  "schedule_final": [
+    1.0,
+    0.0085,
+    0.0085
+  ],
+  "schedule_center": 750000,
+  "schedule_sharpness": 5e-06
+}

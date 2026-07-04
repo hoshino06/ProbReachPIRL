@@ -1,0 +1,37 @@
+{
+  "round_note": "Early-start randT replay-HJB sweep from 2M toward the 10M milestone.",
+  "candidates": [
+    {
+      "name": "ramp0to001",
+      "start_checkpoint": "logs/drift/td3_T01_randT/up02M_scale08_mix334_randT/ckpt-2000000",
+      "schedule_initial": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "schedule_final": [
+        1.0,
+        0.01,
+        0.01
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05
+    },
+    {
+      "name": "ramp0to0005",
+      "start_checkpoint": "logs/drift/td3_T01_randT/up02M_scale08_mix334_randT/ckpt-2000000",
+      "schedule_initial": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "schedule_final": [
+        1.0,
+        0.005,
+        0.005
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05
+    }
+  ]
+}

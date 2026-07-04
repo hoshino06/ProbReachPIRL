@@ -1,0 +1,37 @@
+{
+  "round_note": "Write blocked by read-only sandbox. Both 4M branches recovered reward to 0.18 and kept meanMC stable; continue the better-calibrated 0.005 branch and test a gradual 0.01-to-0.015 increase from the stronger reward branch.",
+  "candidates": [
+    {
+      "name": "const0005_4m",
+      "start_checkpoint": "/home/user/hoshino/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/randT_replayHJB_2Mto10M/round_001/const0005_3m/train/0627_1313_const0005_3m_seed_1/ckpt-4000000",
+      "schedule_initial": [
+        1.0,
+        0.005,
+        0.005
+      ],
+      "schedule_final": [
+        1.0,
+        0.005,
+        0.005
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05
+    },
+    {
+      "name": "ramp001to0015_4m",
+      "start_checkpoint": "/home/user/hoshino/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/randT_replayHJB_2Mto10M/round_001/const001_3m/train/0627_1313_const001_3m_seed_1/ckpt-4000000",
+      "schedule_initial": [
+        1.0,
+        0.01,
+        0.01
+      ],
+      "schedule_final": [
+        1.0,
+        0.015,
+        0.015
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05
+    }
+  ]
+}

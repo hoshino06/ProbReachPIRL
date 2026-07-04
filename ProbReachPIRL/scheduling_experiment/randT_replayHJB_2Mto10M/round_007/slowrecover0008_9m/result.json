@@ -1,0 +1,47 @@
+{
+  "name": "slowrecover0008_9m",
+  "start_checkpoint": "/home/user/hoshino/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/randT_replayHJB_2Mto10M/round_006/slow001to0011_8m/train/0701_0215_slow001to0011_8m_seed_1/ckpt-9000000",
+  "start_itr": 9000000,
+  "checkpoint": "/home/user/hoshino/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/randT_replayHJB_2Mto10M/round_007/slowrecover0008_9m/train/0701_1536_slowrecover0008_9m_seed_1/ckpt-10000000",
+  "target_updates": 10000000,
+  "candidate": {
+    "name": "slowrecover0008_9m",
+    "start_checkpoint": "/home/user/hoshino/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/randT_replayHJB_2Mto10M/round_006/slow001to0011_8m/train/0701_0215_slow001to0011_8m_seed_1/ckpt-9000000",
+    "schedule_initial": [
+      1.0,
+      0.011,
+      0.011
+    ],
+    "schedule_final": [
+      1.0,
+      0.008,
+      0.008
+    ],
+    "schedule_center": 750000,
+    "schedule_sharpness": 5e-06
+  },
+  "mc_metrics": {
+    "beta_r": {
+      "mean_abs_mc_v": 0.091,
+      "max_abs_mc_v": 0.8261,
+      "mean_mc": 0.2586,
+      "mean_v": 0.17
+    },
+    "ey_epsi": {
+      "mean_abs_mc_v": 0.0995,
+      "max_abs_mc_v": 0.867,
+      "mean_mc": 0.5844,
+      "mean_v": 0.492
+    }
+  },
+  "tensorboard_last": {
+    "RL/Average Reward": 0.15000000596046448,
+    "Loss/RL": 0.005698409862816334,
+    "Loss/HJB": 0.4479556083679199,
+    "Loss/HJB_replay": 0.048631638288497925,
+    "Loss/BDR": 0.03158583119511604,
+    "Weights/RL": 1.0,
+    "Weights/HJB": 0.008668103255331516,
+    "Weights/BDR": 0.008668103255331516
+  }
+}

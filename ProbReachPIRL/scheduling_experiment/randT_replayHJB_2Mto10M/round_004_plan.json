@@ -1,0 +1,37 @@
+{
+  "round_note": "Reward softened at 6M, but MC stayed stable without collapse; continue the best safe 0.005 branch and keep a recovered 0.01 branch rather than increasing weights yet.",
+  "candidates": [
+    {
+      "name": "const0005_6m",
+      "start_checkpoint": "/home/user/hoshino/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/randT_replayHJB_2Mto10M/round_003/const0005_5m/train/0629_1004_const0005_5m_seed_1/ckpt-6000000",
+      "schedule_initial": [
+        1.0,
+        0.005,
+        0.005
+      ],
+      "schedule_final": [
+        1.0,
+        0.005,
+        0.005
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05
+    },
+    {
+      "name": "const001_6m",
+      "start_checkpoint": "/home/user/hoshino/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/randT_replayHJB_2Mto10M/round_003/recover001_5m/train/0629_1004_recover001_5m_seed_1/ckpt-6000000",
+      "schedule_initial": [
+        1.0,
+        0.01,
+        0.01
+      ],
+      "schedule_final": [
+        1.0,
+        0.01,
+        0.01
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05
+    }
+  ]
+}

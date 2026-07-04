@@ -1,0 +1,37 @@
+{
+  "round_note": "Continue the safer 0.005 branch and test recovery from the 0.015 branch by reducing back to 0.01, because the 0.015 ramp improved beta-r calibration but softened reward and meanMC.",
+  "candidates": [
+    {
+      "name": "const0005_5m",
+      "start_checkpoint": "/home/user/hoshino/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/randT_replayHJB_2Mto10M/round_002/const0005_4m/train/0628_0307_const0005_4m_seed_1/ckpt-5000000",
+      "schedule_initial": [
+        1.0,
+        0.005,
+        0.005
+      ],
+      "schedule_final": [
+        1.0,
+        0.005,
+        0.005
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05
+    },
+    {
+      "name": "recover001_5m",
+      "start_checkpoint": "/home/user/hoshino/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/randT_replayHJB_2Mto10M/round_002/ramp001to0015_4m/train/0628_0307_ramp001to0015_4m_seed_1/ckpt-5000000",
+      "schedule_initial": [
+        1.0,
+        0.015,
+        0.015
+      ],
+      "schedule_final": [
+        1.0,
+        0.01,
+        0.01
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05
+    }
+  ]
+}
