@@ -1,0 +1,37 @@
+{
+  "round_note": "Round 003 still degraded calibration at 9M; const0012_8m kept slightly better reward and meanMC while taper0010_8m had slightly lower error, so use the 10M milestone as a recovery check with reduced or held weights before any increase.",
+  "candidates": [
+    {
+      "name": "taper0010_9m",
+      "start_checkpoint": "/home/user/hoshino/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/randT_uniformHJB_5Mto10M/round_003/const0012_8m/train/0702_0820_const0012_8m_seed_1/ckpt-9000000",
+      "schedule_initial": [
+        1.0,
+        0.012,
+        0.012
+      ],
+      "schedule_final": [
+        1.0,
+        0.01,
+        0.01
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05
+    },
+    {
+      "name": "const0010_9m",
+      "start_checkpoint": "/home/user/hoshino/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/randT_uniformHJB_5Mto10M/round_003/taper0010_8m/train/0702_0820_taper0010_8m_seed_1/ckpt-9000000",
+      "schedule_initial": [
+        1.0,
+        0.01,
+        0.01
+      ],
+      "schedule_final": [
+        1.0,
+        0.01,
+        0.01
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05
+    }
+  ]
+}

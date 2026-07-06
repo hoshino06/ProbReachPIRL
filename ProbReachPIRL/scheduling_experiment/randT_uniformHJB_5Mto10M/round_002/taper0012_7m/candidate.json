@@ -1,0 +1,16 @@
+{
+  "name": "taper0012_7m",
+  "start_checkpoint": "/home/user/hoshino/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/randT_uniformHJB_5Mto10M/round_001/ramp001to0015/train/0701_0015_ramp001to0015_seed_1/ckpt-7000000",
+  "schedule_initial": [
+    1.0,
+    0.015,
+    0.015
+  ],
+  "schedule_final": [
+    1.0,
+    0.012,
+    0.012
+  ],
+  "schedule_center": 500000,
+  "schedule_sharpness": 1e-05
+}

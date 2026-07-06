@@ -1,0 +1,39 @@
+{
+  "error": "write_blocked_read_only_sandbox",
+  "target_path": "/home/user/hoshino/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/randT_uniformHJB_5Mto10M/round_003_plan.json",
+  "round_note": "Round 002 degraded meanMC and calibration at 8M, though taper0012 kept reward better than const0015. Continue from the less-bad 8M tapered branch with a hold and a reduced-weight recovery path before trying larger weights.",
+  "candidates": [
+    {
+      "name": "const0012_8m",
+      "start_checkpoint": "/home/user/hoshino/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/randT_uniformHJB_5Mto10M/round_002/taper0012_7m/train/0701_1346_taper0012_7m_seed_1/ckpt-8000000",
+      "schedule_initial": [
+        1.0,
+        0.012,
+        0.012
+      ],
+      "schedule_final": [
+        1.0,
+        0.012,
+        0.012
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05
+    },
+    {
+      "name": "taper0010_8m",
+      "start_checkpoint": "/home/user/hoshino/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/randT_uniformHJB_5Mto10M/round_002/taper0012_7m/train/0701_1346_taper0012_7m_seed_1/ckpt-8000000",
+      "schedule_initial": [
+        1.0,
+        0.012,
+        0.012
+      ],
+      "schedule_final": [
+        1.0,
+        0.01,
+        0.01
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05
+    }
+  ]
+}
