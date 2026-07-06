@@ -1,0 +1,24 @@
+{
+  "name": "hold0015_expand0015_hold_R5",
+  "start_checkpoint": "scheduling_experiment/fixed2randT_replayExpandHJB_10Mto15M/round_003/hold0015_expand0015_hold_R4/train/0705_1103_hold0015_expand0015_hold_R4_seed_1/ckpt-14000000",
+  "schedule_initial": [
+    1.0,
+    0.0015,
+    0.0015
+  ],
+  "schedule_final": [
+    1.0,
+    0.0015,
+    0.0015
+  ],
+  "schedule_center": 500000,
+  "schedule_sharpness": 1e-05,
+  "pinn_sample_mode": "replay_expand",
+  "pinn_replay_fraction": 1.0,
+  "pinn_replay_jitter": 0.0,
+  "pinn_expand_jitter_initial": 0.015,
+  "pinn_expand_jitter_final": 0.015,
+  "pinn_expand_center": 500000,
+  "pinn_expand_sharpness": 1e-05,
+  "pinn_expand_time_base": "local"
+}

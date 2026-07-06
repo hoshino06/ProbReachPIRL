@@ -1,0 +1,53 @@
+{
+  "round_note": "Continue from the safest 13M replay_expand branch: holding jitter 0.015 preserved reward and meanMC better than the 0.02 push, while 0.02 improved beta-r calibration at the cost of reachability. Keep HJB/BDR at 0.0015 and compare another 0.015 hold against only a small jitter probe to 0.0175 before considering wider neighborhoods or higher weights.",
+  "candidates": [
+    {
+      "name": "hold0015_expand0015_hold_R4",
+      "start_checkpoint": "scheduling_experiment/fixed2randT_replayExpandHJB_10Mto15M/round_002/hold0015_expand0015_hold_R3/train/0704_2240_hold0015_expand0015_hold_R3_seed_1/ckpt-13000000",
+      "schedule_initial": [
+        1.0,
+        0.0015,
+        0.0015
+      ],
+      "schedule_final": [
+        1.0,
+        0.0015,
+        0.0015
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05,
+      "pinn_sample_mode": "replay_expand",
+      "pinn_replay_fraction": 1.0,
+      "pinn_replay_jitter": 0.0,
+      "pinn_expand_jitter_initial": 0.015,
+      "pinn_expand_jitter_final": 0.015,
+      "pinn_expand_center": 500000,
+      "pinn_expand_sharpness": 1e-05,
+      "pinn_expand_time_base": "local"
+    },
+    {
+      "name": "hold0015_expand00175_R4",
+      "start_checkpoint": "scheduling_experiment/fixed2randT_replayExpandHJB_10Mto15M/round_002/hold0015_expand0015_hold_R3/train/0704_2240_hold0015_expand0015_hold_R3_seed_1/ckpt-13000000",
+      "schedule_initial": [
+        1.0,
+        0.0015,
+        0.0015
+      ],
+      "schedule_final": [
+        1.0,
+        0.0015,
+        0.0015
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05,
+      "pinn_sample_mode": "replay_expand",
+      "pinn_replay_fraction": 1.0,
+      "pinn_replay_jitter": 0.0,
+      "pinn_expand_jitter_initial": 0.015,
+      "pinn_expand_jitter_final": 0.0175,
+      "pinn_expand_center": 500000,
+      "pinn_expand_sharpness": 1e-05,
+      "pinn_expand_time_base": "local"
+    }
+  ]
+}
