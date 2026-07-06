@@ -325,6 +325,11 @@ def run_candidate(candidate: dict[str, Any], round_dir: Path, args: argparse.Nam
     trial_dir = round_dir / name
     trial_log_dir = trial_dir / "train"
     trial_dir.mkdir(parents=True, exist_ok=True)
+    result_path = trial_dir / "result.json"
+    if result_path.exists():
+        print(f"Reusing completed {result_path}", flush=True)
+        return load_json(result_path)
+
     dump_json(trial_dir / "candidate.json", candidate)
 
     start_ckpt = Path(candidate["start_checkpoint"])
@@ -350,8 +355,23 @@ def run_candidate(candidate: dict[str, Any], round_dir: Path, args: argparse.Nam
     if args.learner_num_gpus is not None:
         env["LEARNER_NUM_GPUS"] = str(args.learner_num_gpus)
 
-    run(["bash", "./main_script.sh", "scheduling", str(start_ckpt)], cwd=PROJECT_ROOT, env=env, log_path=trial_dir / "train.log")
-    ckpt = latest_checkpoint(trial_log_dir)
+    ckpt: Path | None = None
+    try:
+        existing_ckpt = latest_checkpoint(trial_log_dir)
+        existing_itr = checkpoint_itr(existing_ckpt)
+        if existing_itr >= target_updates:
+            ckpt = existing_ckpt
+            print(
+                f"Reusing existing checkpoint {ckpt} "
+                f"(itr={existing_itr}, target={target_updates})",
+                flush=True,
+            )
+    except FileNotFoundError:
+        pass
+
+    if ckpt is None:
+        run(["bash", "./main_script.sh", "scheduling", str(start_ckpt)], cwd=PROJECT_ROOT, env=env, log_path=trial_dir / "train.log")
+        ckpt = latest_checkpoint(trial_log_dir)
 
     eval_dir = trial_dir / "eval"
     proc = run([
@@ -382,7 +402,7 @@ def run_candidate(candidate: dict[str, Any], round_dir: Path, args: argparse.Nam
         "mc_metrics": parse_mc_stdout(proc.stdout),
         "tensorboard_last": read_tb_last_scalars(trial_log_dir),
     }
-    dump_json(trial_dir / "result.json", result)
+    dump_json(result_path, result)
     return result
 
 
@@ -408,6 +428,10 @@ def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--config", required=True, type=Path,
                    help="TOML config containing experiment, training_env, evaluation, and initial_plan settings.")
+    p.add_argument("--stop-after-round", type=int, default=None,
+                   help="Stop after completing this zero-based round index, before advisor planning.")
+    p.add_argument("--eval-device-override", default=None,
+                   help="Override [evaluation].device, useful when CUDA is unavailable during resume/eval.")
     args = p.parse_args()
 
     inline_plan = None
@@ -485,7 +509,7 @@ def main() -> None:
     args.eval_T = float(evaluation["T"])
     args.eval_num_grid = int(evaluation["num_grid"])
     args.eval_num_rollouts = int(evaluation["num_rollouts"])
-    args.eval_device = str(evaluation["device"])
+    args.eval_device = str(args.eval_device_override or evaluation["device"])
 
     inline_plan = {
         "round_note": cfg["initial_plan"].get("round_note", ""),
@@ -535,6 +559,8 @@ def main() -> None:
         prompt_path = round_dir / "codex_next_plan_prompt.md"
         prompt_path.write_text(prompt, encoding="utf-8")
 
+        if args.stop_after_round is not None and r >= args.stop_after_round:
+            break
         if r == args.rounds - 1:
             break
         if next_plan_path.exists():

@@ -1,0 +1,16 @@
+{
+  "name": "cont9m_bdr004",
+  "start_checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_7Mto10M_valueBDR/round_001/cont_hjb002_bdr0035/train/0702_2014_cont_hjb002_bdr0035_seed_1/ckpt-9000000",
+  "schedule_initial": [
+    1.0,
+    0.02,
+    0.035
+  ],
+  "schedule_final": [
+    1.0,
+    0.02,
+    0.04
+  ],
+  "schedule_center": 500000,
+  "schedule_sharpness": 1e-05
+}

@@ -1,0 +1,16 @@
+/home/ubuntu/.config/matplotlib is not a writable directory
+Matplotlib created a temporary cache directory at /tmp/matplotlib-dhkfegdw because there was an issue with the default path (/home/ubuntu/.config/matplotlib); it is highly recommended to set the MPLCONFIGDIR environment variable to a writable directory, in particular to speed up the import of Matplotlib and to better support multiprocessing.
+Saved: /home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_7Mto10M_valueBDR/round_002/cont9m_bdr004/eval/mc_vs_value_contours.png
+Saved: /home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_7Mto10M_valueBDR/round_002/cont9m_bdr004/eval/mc_vs_value_contours.pdf
+--------------------------------------------
+checkpoint: /home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_7Mto10M_valueBDR/round_002/cont9m_bdr004/train/0703_0951_cont9m_bdr004_seed_1/ckpt-10000000
+out_dir:    /home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_7Mto10M_valueBDR/round_002/cont9m_bdr004/eval
+T:          5
+mu:         0.5500
+grid:       31 x 31
+rollouts:   16
+mode:       stochastic
+ey_max:     2
+beta_r: mean|MC-V|=0.1834, max|MC-V|=0.9977, mean MC=0.3957, mean V=0.2139
+ey_epsi: mean|MC-V|=0.1543, max|MC-V|=0.9280, mean MC=0.5663, mean V=0.4158
+--------------------------------------------

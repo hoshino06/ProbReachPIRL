@@ -1,0 +1,37 @@
+{
+  "round_note": "Round 000 kept reward acceptable but slightly degraded beta-r meanMC and calibration versus the 7M reference, so use one backed-off 8M continuation and one gentler 7M branch before increasing weights further.",
+  "candidates": [
+    {
+      "name": "cont_hjb002_bdr0035",
+      "start_checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_7Mto10M_valueBDR/round_000/hjb002_bdr004/train/0702_0329_hjb002_bdr004_seed_1/ckpt-8000000",
+      "schedule_initial": [
+        1.0,
+        0.02,
+        0.04
+      ],
+      "schedule_final": [
+        1.0,
+        0.02,
+        0.035
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05
+    },
+    {
+      "name": "hjb0025_bdr003",
+      "start_checkpoint": "scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_003/hold0025_from6M/train/0627_1812_hold0025_from6M_seed_1/ckpt-7000000",
+      "schedule_initial": [
+        1.0,
+        0.025,
+        0.025
+      ],
+      "schedule_final": [
+        1.0,
+        0.025,
+        0.03
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05
+    }
+  ]
+}
