@@ -1,0 +1,80 @@
+{
+  "name": "hold0001_expand001_R2",
+  "start_checkpoint": "scheduling_experiment/fixed2randT_replayExpandHJB_5Mto10M/round_001/hold0001_expand001_R1/train/0705_0100_hold0001_expand001_R1_seed_1/ckpt-7000000",
+  "start_itr": 7000000,
+  "checkpoint": "/home/ubuntu-root/hoshino/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_replayExpandHJB_5Mto10M/round_002/hold0001_expand001_R2/train/0705_1201_hold0001_expand001_R2_seed_1/ckpt-8000000",
+  "target_updates": 8000000,
+  "candidate": {
+    "name": "hold0001_expand001_R2",
+    "start_checkpoint": "scheduling_experiment/fixed2randT_replayExpandHJB_5Mto10M/round_001/hold0001_expand001_R1/train/0705_0100_hold0001_expand001_R1_seed_1/ckpt-7000000",
+    "schedule_initial": [
+      1.0,
+      0.0001,
+      0.0001
+    ],
+    "schedule_final": [
+      1.0,
+      0.0001,
+      0.0001
+    ],
+    "schedule_center": 500000,
+    "schedule_sharpness": 1e-05,
+    "pinn_sample_mode": "replay_expand",
+    "pinn_replay_fraction": 1.0,
+    "pinn_replay_jitter": 0.0,
+    "pinn_expand_jitter_initial": 0.01,
+    "pinn_expand_jitter_final": 0.01,
+    "pinn_expand_center": 500000,
+    "pinn_expand_sharpness": 1e-05,
+    "pinn_expand_time_base": "local"
+  },
+  "effective_training_env": {
+    "CASE": "drift",
+    "DRIFT_DT": "0.1",
+    "DRIFT_RESET_MIXTURE_PROBS": "0.3,0.3,0.4",
+    "DRIFT_RESET_MODE": "mixture",
+    "DRIFT_RESET_SCALE": "1.0",
+    "DRIFT_RESET_T_MAX": "5.0",
+    "DRIFT_RESET_T_MIN": "0.0",
+    "DRIFT_RESET_T_MODE": "random",
+    "HJB_LAPLACIAN_MODE": "loop",
+    "INITIAL_EXPLORATION_POLICY": "policy",
+    "METHOD": "scheduling",
+    "NUM_WORKERS": "2",
+    "PINN_EXPAND_CENTER": "500000",
+    "PINN_EXPAND_JITTER_FINAL": "0.01",
+    "PINN_EXPAND_JITTER_INITIAL": "0.01",
+    "PINN_EXPAND_SHARPNESS": "1e-05",
+    "PINN_EXPAND_TIME_BASE": "local",
+    "PINN_REPLAY_FRACTION": "1.0",
+    "PINN_REPLAY_JITTER": "0.0",
+    "PINN_SAMPLE_MODE": "replay_expand",
+    "SCHEDULE_TIME_BASE": "local",
+    "SEEDS": "1"
+  },
+  "mc_metrics": {
+    "beta_r": {
+      "mean_abs_mc_v": 0.1246,
+      "max_abs_mc_v": 0.9978,
+      "mean_mc": 0.4181,
+      "mean_v": 0.2936
+    },
+    "ey_epsi": {
+      "mean_abs_mc_v": 0.1171,
+      "max_abs_mc_v": 0.8989,
+      "mean_mc": 0.5992,
+      "mean_v": 0.4856
+    }
+  },
+  "tensorboard_last": {
+    "RL/Average Reward": 0.20999999344348907,
+    "Loss/RL": 0.006711545865982771,
+    "Loss/HJB": 0.6595661044120789,
+    "Loss/HJB_replay": 0.9098663926124573,
+    "Loss/BDR": 0.24127937853336334,
+    "Weights/RL": 1.0,
+    "Weights/HJB": 9.999999747378752e-05,
+    "Weights/BDR": 9.999999747378752e-05,
+    "PINN/Replay Jitter": 0.009999999776482582
+  }
+}

@@ -1,0 +1,53 @@
+{
+  "round_note": "Restart from fixedT TD3 5M with very small HJB/BDR and tiny replay-neighborhood expansion. The first round should test whether replay_expand preserves the replay-HJB restart behavior.",
+  "candidates": [
+    {
+      "name": "ramp0to0001_expand0005",
+      "start_checkpoint": "logs/drift/td3_T01/up05M_scale10_mix334/ckpt-5000000",
+      "schedule_initial": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "schedule_final": [
+        1.0,
+        0.0001,
+        0.0001
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05,
+      "pinn_sample_mode": "replay_expand",
+      "pinn_replay_fraction": 1.0,
+      "pinn_replay_jitter": 0.0,
+      "pinn_expand_jitter_initial": 0.0,
+      "pinn_expand_jitter_final": 0.005,
+      "pinn_expand_center": 500000,
+      "pinn_expand_sharpness": 1e-05,
+      "pinn_expand_time_base": "local"
+    },
+    {
+      "name": "ramp0to0001_expand001",
+      "start_checkpoint": "logs/drift/td3_T01/up05M_scale10_mix334/ckpt-5000000",
+      "schedule_initial": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "schedule_final": [
+        1.0,
+        0.0001,
+        0.0001
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05,
+      "pinn_sample_mode": "replay_expand",
+      "pinn_replay_fraction": 1.0,
+      "pinn_replay_jitter": 0.0,
+      "pinn_expand_jitter_initial": 0.0,
+      "pinn_expand_jitter_final": 0.01,
+      "pinn_expand_center": 500000,
+      "pinn_expand_sharpness": 1e-05,
+      "pinn_expand_time_base": "local"
+    }
+  ]
+}

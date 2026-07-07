@@ -1,0 +1,1303 @@
+OpenAI Codex v0.140.0
+--------
+workdir: /home/ubuntu-root/hoshino/ProbReachPIRL/ProbReachPIRL
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR]
+reasoning effort: none
+reasoning summaries: none
+session id: 019f2dda-f1b1-7bd1-ac3b-9af7356abb35
+--------
+user
+You are controlling the next round of PIRL weight and collocation-distribution scheduling.
+
+Objective:
+- Treat 10000000 total updates as the first milestone, not a hard stop.
+- By that milestone, outperform the TD3 baseline from logs/drift/td3_T01/up05M_scale10_mix334/ckpt-5000000.
+- If reward and MC reachability remain stable, keep progressing beyond the milestone.
+- Keep final reward no worse than TD3 while reducing value calibration error mean|MC-V|.
+- For replay_expand experiments, start close to replay-HJB and expand the HJB collocation neighborhood cautiously.
+
+Output:
+- Write ONLY valid JSON to: /home/ubuntu-root/hoshino/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_replayExpandHJB_5Mto10M/round_001_plan.json
+- Return exactly 2 candidate(s).
+
+Schema:
+{
+  "round_note": "brief rationale",
+  "candidates": [
+    {
+      "name": "short_unique_name",
+      "start_checkpoint": "path/to/ckpt-N",
+      "schedule_initial": [1.0, hjb0, bdr0],
+      "schedule_final": [1.0, hjb1, bdr1],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-5,
+      "pinn_sample_mode": "replay_expand",
+      "pinn_replay_fraction": 1.0,
+      "pinn_replay_jitter": 0.0,
+      "pinn_expand_jitter_initial": 0.0,
+      "pinn_expand_jitter_final": 0.05,
+      "pinn_expand_center": 500000,
+      "pinn_expand_sharpness": 1e-5,
+      "pinn_expand_time_base": "local"
+    }
+  ]
+}
+
+Selection rules:
+- Continue from the best safe checkpoint when reward and MC are stable.
+- If reward or meanMC degraded, reduce weights or slow the schedule before trying larger weights.
+- Increase HJB/BDR gradually.
+- Increase replay_expand jitter gradually; prefer holding or backing off jitter before increasing HJB/BDR when reward or meanMC weakens.
+- Candidate-level pinn_* fields are optional; omitted fields inherit [training_env] defaults from the TOML config.
+- Use at most one TD3-restart control per round, unless all scheduling checkpoints collapsed.
+- Do not repeat an existing start_checkpoint + schedule_initial + schedule_final + pinn_expand_jitter_final combination unless round_note explains why.
+
+Advisor context from TOML:
+
+Manual notes:
+- This is the direct 5M-to-10M replay_expand comparison against fixed2randT_replayHJB_7Mto10M_restart2.
+- The earlier fixed2randT_replayHJB_5Mto10M run collapsed when HJB/BDR were too large. The restart path improved only after using very small HJB/BDR values around 0.0001 to 0.002.
+- Use the same fixedT TD3 5M baseline and randT reset as the replay-HJB restart experiments so the comparison isolates HJB collocation distribution.
+- Start almost indistinguishable from replay-HJB. Use tiny jitter finals such as 0.005 or 0.01 before considering 0.02.
+- If reward or meanMC degrades, prefer reducing HJB/BDR or holding jitter over expanding further.
+- At 10M, compare primarily against restart2 hold0015_R3 and ramp00175_R3, not against collapsed low-MC branches with low mean|MC-V|.
+
+Reference paths:
+- logs/drift/README.md
+- scheduling_experiment/fixed2randT_replayHJB_5Mto10M_restart.toml
+- scheduling_experiment/fixed2randT_replayHJB_5Mto10M_restart/all_results.json
+- scheduling_experiment/fixed2randT_replayHJB_7Mto10M_restart2.toml
+- scheduling_experiment/fixed2randT_replayHJB_7Mto10M_restart2/all_results.json
+- scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/all_results.json
+
+
+Completed results JSON:
+[
+  {
+    "name": "ramp0to0001_expand0005",
+    "start_checkpoint": "logs/drift/td3_T01/up05M_scale10_mix334/ckpt-5000000",
+    "start_itr": 5000000,
+    "checkpoint": "/home/ubuntu-root/hoshino/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_replayExpandHJB_5Mto10M/round_000/ramp0to0001_expand0005/train/0704_1419_ramp0to0001_expand0005_seed_1/ckpt-6000000",
+    "target_updates": 6000000,
+    "candidate": {
+      "name": "ramp0to0001_expand0005",
+      "start_checkpoint": "logs/drift/td3_T01/up05M_scale10_mix334/ckpt-5000000",
+      "schedule_initial": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "schedule_final": [
+        1.0,
+        0.0001,
+        0.0001
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05,
+      "pinn_sample_mode": "replay_expand",
+      "pinn_replay_fraction": 1.0,
+      "pinn_replay_jitter": 0.0,
+      "pinn_expand_jitter_initial": 0.0,
+      "pinn_expand_jitter_final": 0.005,
+      "pinn_expand_center": 500000,
+      "pinn_expand_sharpness": 1e-05,
+      "pinn_expand_time_base": "local"
+    },
+    "effective_training_env": {
+      "CASE": "drift",
+      "DRIFT_DT": "0.1",
+      "DRIFT_RESET_MIXTURE_PROBS": "0.3,0.3,0.4",
+      "DRIFT_RESET_MODE": "mixture",
+      "DRIFT_RESET_SCALE": "1.0",
+      "DRIFT_RESET_T_MAX": "5.0",
+      "DRIFT_RESET_T_MIN": "0.0",
+      "DRIFT_RESET_T_MODE": "random",
+      "HJB_LAPLACIAN_MODE": "loop",
+      "INITIAL_EXPLORATION_POLICY": "policy",
+      "METHOD": "scheduling",
+      "NUM_WORKERS": "2",
+      "PINN_EXPAND_CENTER": "500000",
+      "PINN_EXPAND_JITTER_FINAL": "0.005",
+      "PINN_EXPAND_JITTER_INITIAL": "0.0",
+      "PINN_EXPAND_SHARPNESS": "1e-05",
+      "PINN_EXPAND_TIME_BASE": "local",
+      "PINN_REPLAY_FRACTION": "1.0",
+      "PINN_REPLAY_JITTER": "0.0",
+      "PINN_SAMPLE_MODE": "replay_expand",
+      "SCHEDULE_TIME_BASE": "local",
+      "SEEDS": "1"
+    },
+    "mc_metrics": {
+      "beta_r": {
+        "mean_abs_mc_v": 0.1399,
+        "max_abs_mc_v": 0.9988,
+        "mean_mc": 0.4116,
+        "mean_v": 0.2718
+      },
+      "ey_epsi": {
+        "mean_abs_mc_v": 0.1391,
+        "max_abs_mc_v": 0.88,
+        "mean_mc": 0.5998,
+        "mean_v": 0.4639
+      }
+    },
+    "tensorboard_last": {
+      "RL/Average Reward": 0.10000000149011612,
+      "Loss/RL": 0.001964109018445015,
+      "Loss/HJB": 1.2686518430709839,
+      "Loss/HJB_replay": 2.5483222007751465,
+      "Loss/BDR": 0.25072962045669556,
+      "Weights/RL": 1.0,
+      "Weights/HJB": 9.999999747378752e-05,
+      "Weights/BDR": 9.999999747378752e-05,
+      "PINN/Replay Jitter": 0.004999999888241291
+    }
+  },
+  {
+    "name": "ramp0to0001_expand001",
+    "start_checkpoint": "logs/drift/td3_T01/up05M_scale10_mix334/ckpt-5000000",
+    "start_itr": 5000000,
+    "checkpoint": "/home/ubuntu-root/hoshino/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_replayExpandHJB_5Mto10M/round_000/ramp0to0001_expand001/train/0704_1419_ramp0to0001_expand001_seed_1/ckpt-6000000",
+    "target_updates": 6000000,
+    "candidate": {
+      "name": "ramp0to0001_expand001",
+      "start_checkpoint": "logs/drift/td3_T01/up05M_scale10_mix334/ckpt-5000000",
+      "schedule_initial": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "schedule_final": [
+        1.0,
+        0.0001,
+        0.0001
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05,
+      "pinn_sample_mode": "replay_expand",
+      "pinn_replay_fraction": 1.0,
+      "pinn_replay_jitter": 0.0,
+      "pinn_expand_jitter_initial": 0.0,
+      "pinn_expand_jitter_final": 0.01,
+      "pinn_expand_center": 500000,
+      "pinn_expand_sharpness": 1e-05,
+      "pinn_expand_time_base": "local"
+    },
+    "effective_training_env": {
+      "CASE": "drift",
+      "DRIFT_DT": "0.1",
+      "DRIFT_RESET_MIXTURE_PROBS": "0.3,0.3,0.4",
+      "DRIFT_RESET_MODE": "mixture",
+      "DRIFT_RESET_SCALE": "1.0",
+      "DRIFT_RESET_T_MAX": "5.0",
+      "DRIFT_RESET_T_MIN": "0.0",
+      "DRIFT_RESET_T_MODE": "random",
+      "HJB_LAPLACIAN_MODE": "loop",
+      "INITIAL_EXPLORATION_POLICY": "policy",
+      "METHOD": "scheduling",
+      "NUM_WORKERS": "2",
+      "PINN_EXPAND_CENTER": "500000",
+      "PINN_EXPAND_JITTER_FINAL": "0.01",
+      "PINN_EXPAND_JITTER_INITIAL": "0.0",
+      "PINN_EXPAND_SHARPNESS": "1e-05",
+      "PINN_EXPAND_TIME_BASE": "local",
+      "PINN_REPLAY_FRACTION": "1.0",
+      "PINN_REPLAY_JITTER": "0.0",
+      "PINN_SAMPLE_MODE": "replay_expand",
+      "SCHEDULE_TIME_BASE": "local",
+      "SEEDS": "1"
+    },
+    "mc_metrics": {
+      "beta_r": {
+        "mean_abs_mc_v": 0.1351,
+        "max_abs_mc_v": 0.9987,
+        "mean_mc": 0.4108,
+        "mean_v": 0.2758
+      },
+      "ey_epsi": {
+        "mean_abs_mc_v": 0.1353,
+        "max_abs_mc_v": 0.8995,
+        "mean_mc": 0.6001,
+        "mean_v": 0.4686
+      }
+    },
+    "tensorboard_last": {
+      "RL/Average Reward": 0.23000000417232513,
+      "Loss/RL": 0.005527892615646124,
+      "Loss/HJB": 0.7536641955375671,
+      "Loss/HJB_replay": 1.3131181001663208,
+      "Loss/BDR": 0.36113086342811584,
+      "Weights/RL": 1.0,
+      "Weights/HJB": 9.999999747378752e-05,
+      "Weights/BDR": 9.999999747378752e-05,
+      "PINN/Replay Jitter": 0.009999999776482582
+    }
+  }
+]
+
+codex
+I’ll inspect the referenced summaries and prior result files, then write the next-round JSON plan directly to the requested path.
+exec
+/bin/bash -lc "sed -n '1,220p' logs/drift/README.md" in /home/ubuntu-root/hoshino/ProbReachPIRL/ProbReachPIRL
+ succeeded in 0ms:
+# Drift training logs
+
+This directory contains curated training logs for the drifting-control task.
+
+## TD3 logs
+
+The main curated TD3 series are:
+
+- `td3_T002/`: fixed reset horizon experiments with `T=5.0`.  The time step is  `dt=0.02`.
+- `td3_T01/`: fixed reset horizon experiments with `T=5.0`. The time step is  `dt=0.1`.
+- `td3_T01_randT/`: random horizon experiments.  Initial states use `T` sampled in `[0, 5]`.
+
+Directory names use the following convention:
+
+- `upXXM`: training has reached approximately `XX` million TD3 updates.
+- `scaleYY`: reset region scale, for example `scale10` means `DRIFT_RESET_SCALE=1.0`.
+- `mix334`: reset mixture probabilities `(0.3, 0.3, 0.4)`.
+- `mix442`: reset mixture probabilities `(0.4, 0.4, 0.2)`.
+- `mix45451`: reset mixture probabilities `(0.45, 0.45, 0.10)`.
+- `randT`: reset horizon was randomized instead of fixed.
+
+### `td3_T002`
+
+Older fixed-`T=5.0` TD3 curriculum with a smaller time step, `dt=0.02`.
+
+Main sequence:
+
+- `up01M_scale02_mix001/ckpt-1000000`
+- `up03M_scale10_mix45451/ckpt-3000000`
+- `up05M_scale10_mix45451/ckpt-5000000`
+- `up07M_scale10_mix45451/ckpt-7000000`
+- `up09M_scale10_mix45451/ckpt-9000000`
+- `up11M_scale10_mix442/ckpt-11000000`
+- `up13M_scale10_mix442/ckpt-13000000`
+
+This series is mostly a historical baseline for the smaller-`dt` training.
+
+### `td3_T01`
+
+Fixed `T=5.0` TD3 training.
+
+Main sequence:
+
+- `up01M_scale04_mix442/ckpt-1000000`
+- `up03M_scale10_mix334/ckpt-3000000`
+- `up05M_scale10_mix334/ckpt-5000000`
+- `up10M_scale10_mix334/ckpt-10000000`
+
+At the `T=5`, `mu=0.55` MC reachability evaluation slice, the 10M fixed-`T`
+runs gave high closed-loop reachability.
+
+
+### `td3_T01_randT`
+
+Random-horizon TD3 training.
+
+Main sequence:
+
+- `up02M_scale08_mix334_randT/ckpt-2000000`
+- `up03M_scale10_mix334_randT/ckpt-3000000`
+- `up10M_scale10_mix334_randT/ckpt-10000000`
+- `up15M_scale10_mix334_randT/ckpt-15000000`
+
+The random-`T` 15M representative is seed 3 from the `0622_1051` continuation.
+It had the best MC reachability meanMC among the 15M seeds on both evaluated
+planes at `T=5.0`, `mu=0.55`.
+
+
+## Scheduling logs
+
+Scheduling/PIRL runs were started after checking the TD3 baselines above.  The
+main hand-run workflow was:
+
+1. train or select a TD3 checkpoint,
+2. continue from that checkpoint with HJB/BDR scheduling,
+3. monitor TensorBoard reward and losses, and
+4. evaluate checkpoints with MC reachability on the beta-r and ey-epsi planes at
+   `T=5.0`, `mu=0.55`.
+
+Curated scheduling logs are grouped by the conditions that mattered most during
+the manual comparison:
+
+- `scheduling_randT_replayHJB/`: random reset horizon, replay-memory HJB
+  sampling. This is the main scheduling continuation from the random-`T` TD3
+  baseline.
+- `scheduling_fixedT_replayHJB/`: fixed `T=5.0`, replay-memory HJB sampling.
+- `scheduling_fixedT_uniformHJB/`: fixed `T=5.0`, uniform HJB sampling.
+- `scheduling_fixed2randT_uniformHJB/`: started from a fixed-`T` TD3 baseline,
+  then continued with randomized `T` and uniform HJB sampling.
+
+Within each scheduling group, directory names keep the date/time prefix for
+traceability and use short condition tags:
+
+- `ramp001`: HJB and BDR weights were ramped up to `0.01`.
+- `ramp005`: HJB and BDR weights were ramped up to `0.05`.
+- `const001`: HJB and BDR weights were held at `0.01`.
+- `fail` or `fail_hjb01`: kept failure reference where larger HJB/BDR weights
+  degraded reward.
+- `XMtoYM`: continuation range in TD3/PIRL update count.
+
+Representative seeds were selected by MC reachability meanMC on the evaluated
+planes.  For active continuations, more than one seed may be kept until the next
+selection step is made.  Checkpoints are kept at 1M-update intervals whenever
+possible; stopped failure references keep the final useful checkpoint.
+
+The earlier long names such as `scheduling_T01_randT_scale10_mix334...` were
+archived after curation because `scale10_mix334` mainly describes the inherited
+TD3 checkpoint rather than the scheduling condition being compared.
+
+## Notes
+
+- TensorBoard scalar logs were retagged after the HJB logger change: use
+  `Loss/HJB` for uniform HJB evaluation and `Loss/HJB_replay` for replay-sampled
+  HJB loss.
+- Checkpoints named directly under a curated directory are the representative
+  checkpoints after log cleanup.  Archived per-seed raw runs may exist outside
+  these curated directories.
+
+exec
+/bin/bash -lc "sed -n '1,220p' scheduling_experiment/fixed2randT_replayHJB_5Mto10M_restart.toml" in /home/ubuntu-root/hoshino/ProbReachPIRL/ProbReachPIRL
+exec
+/bin/bash -lc "sed -n '1,220p' scheduling_experiment/fixed2randT_replayHJB_7Mto10M_restart2.toml" in /home/ubuntu-root/hoshino/ProbReachPIRL/ProbReachPIRL
+ succeeded in 0ms:
+# PIRL scheduling experiment config for fixed2randT_replayHJB restart.
+# Start from a fixedT TD3 checkpoint, switch reset T to random during
+# scheduling, and sample HJB points from the replay buffer.
+# This restart config treats reward collapse as unrecoverable and forces the
+# advisor to restart from a safe checkpoint instead of continuing collapsed runs.
+# Run with:
+#   conda activate pirl
+#   python scheduling_experiment/run_scheduling_experiment.py --config scheduling_experiment/fixed2randT_replayHJB_5Mto10M_restart.toml
+
+[experiment]
+baseline_checkpoint = "logs/drift/td3_T01/up05M_scale10_mix334/ckpt-5000000"
+rounds = 8
+updates_per_round = 1_000_000
+target_total_updates = 10_000_000
+max_parallel_candidates = 2
+learner_num_gpus = 0.16
+advisor_command = "codex exec"
+
+# One checkpoint per continuation block and lighter TensorBoard logs.
+checkpoint_freq = 1_000_000
+log_freq = 5_000
+
+[training_env]
+CASE = "drift"
+METHOD = "scheduling"
+SEEDS = "1"
+NUM_WORKERS = 2
+
+DRIFT_DT = 0.1
+DRIFT_RESET_SCALE = 1.0
+DRIFT_RESET_MODE = "mixture"
+DRIFT_RESET_MIXTURE_PROBS = "0.3,0.3,0.4" # beta_r, ey_epsi, full
+DRIFT_RESET_T_MODE = "random"
+DRIFT_RESET_T_MIN = 0.0
+DRIFT_RESET_T_MAX = 5.0
+
+INITIAL_EXPLORATION_POLICY = "policy"
+PINN_SAMPLE_MODE = "replay"
+PINN_REPLAY_FRACTION = 1.0
+PINN_REPLAY_JITTER = 0.0
+
+HJB_LAPLACIAN_MODE = "loop"
+SCHEDULE_TIME_BASE = "local"
+
+[evaluation]
+T = 5.0
+num_grid = 31
+num_rollouts = 16
+device = "cuda"
+
+[advisor_context]
+manual_notes = """
+- This is a restart after fixed2randT_replayHJB_5Mto10M collapsed reward in round0/round1.
+- The fixedT TD3 5M baseline had RL/Average Reward around 0.44 at the end. Treat reward below 0.20 as unsafe and below 0.10 as collapsed, even if HJB/BDR or MC metrics improve.
+- Do not continue, back off from, or branch from collapsed checkpoints. If all candidates in a round are unsafe, restart from the baseline checkpoint or the last checkpoint with reward >= 0.20.
+- Do not increase HJB/BDR above 0.005 until reward stays at least 0.30 for a full round. Prefer smaller increases such as 0.001 -> 0.002 -> 0.005.
+- Keep one randT reset control with HJB/BDR=0.0 until the reward effect of switching fixedT to randT is understood.
+- Prioritize reward preservation over reducing HJB loss. MC reachability improvements are not useful if reward collapses.
+"""
+reference_paths = [
+  "logs/drift/README.md",
+  "logs/drift/scheduling_randT_replayHJB",
+  "logs/drift/scheduling_fixed2randT_uniformHJB",
+  "logs/drift/scheduling_fixedT_replayHJB",
+  "logs/drift/scheduling_fixedT_uniformHJB",
+  "logs/drift/td3_T01_randT/",
+  "logs/drift/td3_T01/",
+  "scheduling_experiment/fixed2randT_replayHJB_5Mto10M",
+]
+
+[initial_plan]
+round_note = "Restart from the fixedT TD3 5M checkpoint with a randT-only control and a very small replay-HJB/BDR ramp. The previous 0.01 and 0.05 ramps collapsed reward."
+
+[[initial_plan.candidates]]
+name = "randTonly"
+start_checkpoint = ""
+schedule_initial = [1.0, 0.0, 0.0]
+schedule_final = [1.0, 0.0, 0.0]
+schedule_center = 500_000
+schedule_sharpness = 0.00001
+
+[[initial_plan.candidates]]
+name = "ramp0to0001"
+start_checkpoint = ""
+schedule_initial = [1.0, 0.0, 0.0]
+schedule_final = [1.0, 0.001, 0.001]
+schedule_center = 500_000
+schedule_sharpness = 0.00001
+
+ succeeded in 0ms:
+# PIRL scheduling experiment config for fixed2randT_replayHJB restart2.
+# Continue from the promising round_001 checkpoints of the restart experiment.
+# Run with:
+#   conda activate pirl
+#   python scheduling_experiment/run_scheduling_experiment.py --config scheduling_experiment/fixed2randT_replayHJB_7Mto10M_restart2.toml
+
+[experiment]
+baseline_checkpoint = "logs/drift/td3_T01/up05M_scale10_mix334/ckpt-5000000"
+rounds = 5
+updates_per_round = 1_000_000
+target_total_updates = 10_000_000
+max_parallel_candidates = 2
+learner_num_gpus = 0.16
+advisor_command = "codex exec"
+
+# One checkpoint per continuation block and lighter TensorBoard logs.
+checkpoint_freq = 1_000_000
+log_freq = 5_000
+
+[training_env]
+CASE = "drift"
+METHOD = "scheduling"
+SEEDS = "1"
+NUM_WORKERS = 2
+
+DRIFT_DT = 0.1
+DRIFT_RESET_SCALE = 1.0
+DRIFT_RESET_MODE = "mixture"
+DRIFT_RESET_MIXTURE_PROBS = "0.3,0.3,0.4" # beta_r, ey_epsi, full
+DRIFT_RESET_T_MODE = "random"
+DRIFT_RESET_T_MIN = 0.0
+DRIFT_RESET_T_MAX = 5.0
+
+INITIAL_EXPLORATION_POLICY = "policy"
+PINN_SAMPLE_MODE = "replay"
+PINN_REPLAY_FRACTION = 1.0
+PINN_REPLAY_JITTER = 0.0
+
+HJB_LAPLACIAN_MODE = "loop"
+SCHEDULE_TIME_BASE = "local"
+
+[evaluation]
+T = 5.0
+num_grid = 31
+num_rollouts = 16
+device = "cuda"
+
+[advisor_context]
+manual_notes = """
+- This restart2 continues from fixed2randT_replayHJB_5Mto10M_restart round_001, because TensorBoard smoothed reward suggested those branches were more promising than the final raw reward alone indicated.
+- Reward is noisy. Do not reject a checkpoint based only on the final raw reward value.
+- Avoid fixed absolute reward thresholds unless they are justified by the current experiment. Compare candidates relative to nearby runs under the same reset and sampling setup.
+- Prefer continuations that keep reward comparable while improving MC calibration. Increase HJB/BDR gradually when the reward trend remains acceptable.
+"""
+reference_paths = [
+  "logs/drift/README.md",
+  "logs/drift/scheduling_randT_replayHJB",
+  "logs/drift/scheduling_fixed2randT_uniformHJB",
+  "logs/drift/scheduling_fixedT_replayHJB",
+  "logs/drift/scheduling_fixedT_uniformHJB",
+  "logs/drift/td3_T01_randT/",
+  "logs/drift/td3_T01/",
+  "scheduling_experiment/fixed2randT_replayHJB_5Mto10M",
+  "scheduling_experiment/fixed2randT_replayHJB_5Mto10M_restart",
+]
+
+[initial_plan]
+round_note = "Continue the two restart round_001 branches that looked promising under smoothed reward: hold 0.001 and hold 0.002 for one more 1M-update block before deciding whether to increase or back off."
+
+[[initial_plan.candidates]]
+name = "hold0001_R1"
+start_checkpoint = "scheduling_experiment/fixed2randT_replayHJB_5Mto10M_restart/round_001/hold0001/train/0627_0211_hold0001_seed_1/ckpt-7000000"
+schedule_initial = [1.0, 0.001, 0.001]
+schedule_final = [1.0, 0.001, 0.001]
+schedule_center = 500_000
+schedule_sharpness = 0.00001
+
+[[initial_plan.candidates]]
+name = "hold0002_R1"
+start_checkpoint = "scheduling_experiment/fixed2randT_replayHJB_5Mto10M_restart/round_001/cont0001to0002/train/0627_0211_cont0001to0002_seed_1/ckpt-7000000"
+schedule_initial = [1.0, 0.002, 0.002]
+schedule_final = [1.0, 0.002, 0.002]
+schedule_center = 500_000
+schedule_sharpness = 0.00001
+
+exec
+/bin/bash -lc "jq '. | length' scheduling_experiment/fixed2randT_replayHJB_5Mto10M_restart/all_results.json scheduling_experiment/fixed2randT_replayHJB_7Mto10M_restart2/all_results.json scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/all_results.json" in /home/ubuntu-root/hoshino/ProbReachPIRL/ProbReachPIRL
+ exited 127 in 0ms:
+/bin/bash: line 1: jq: command not found
+
+codex
+`jq` is not installed in this environment, so I’m using targeted text reads of the result JSON instead of adding dependencies. Next I’m extracting the comparable replay-HJB and uniform-HJB checkpoint metrics.
+exec
+/bin/bash -lc "rg -n '\"name\"|\"checkpoint\"|\"RL/Average Reward\"|\"mean_abs_mc_v\"|\"mean_mc\"|\"mean_v\"|\"target_updates\"' scheduling_experiment/fixed2randT_replayHJB_5Mto10M_restart/all_results.json" in /home/ubuntu-root/hoshino/ProbReachPIRL/ProbReachPIRL
+exec
+/bin/bash -lc "rg -n '\"name\"|\"checkpoint\"|\"RL/Average Reward\"|\"mean_abs_mc_v\"|\"mean_mc\"|\"mean_v\"|\"target_updates\"' scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/all_results.json" in /home/ubuntu-root/hoshino/ProbReachPIRL/ProbReachPIRL
+exec
+/bin/bash -lc "rg -n '\"name\"|\"checkpoint\"|\"RL/Average Reward\"|\"mean_abs_mc_v\"|\"mean_mc\"|\"mean_v\"|\"target_updates\"' scheduling_experiment/fixed2randT_replayHJB_7Mto10M_restart2/all_results.json" in /home/ubuntu-root/hoshino/ProbReachPIRL/ProbReachPIRL
+ succeeded in 0ms:
+3:    "name": "randTonly",
+6:    "checkpoint": "/home/ubuntu-root/hoshino/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_replayHJB_5Mto10M_restart/round_000/randTonly/train/0626_1710_randTonly_seed_1/ckpt-6000000",
+7:    "target_updates": 6000000,
+9:      "name": "randTonly",
+26:        "mean_abs_mc_v": 0.1359,
+28:        "mean_mc": 0.4007,
+29:        "mean_v": 0.2661
+32:        "mean_abs_mc_v": 0.1308,
+34:        "mean_mc": 0.5922,
+35:        "mean_v": 0.4661
+39:      "RL/Average Reward": 0.14000000059604645,
+50:    "name": "ramp0to0001",
+53:    "checkpoint": "/home/ubuntu-root/hoshino/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_replayHJB_5Mto10M_restart/round_000/ramp0to0001/train/0626_1710_ramp0to0001_seed_1/ckpt-6000000",
+54:    "target_updates": 6000000,
+56:      "name": "ramp0to0001",
+73:        "mean_abs_mc_v": 0.1174,
+75:        "mean_mc": 0.4056,
+76:        "mean_v": 0.2888
+79:        "mean_abs_mc_v": 0.107,
+81:        "mean_mc": 0.5878,
+82:        "mean_v": 0.4891
+86:      "RL/Average Reward": 0.2199999988079071,
+97:    "name": "hold0001",
+100:    "checkpoint": "/home/ubuntu-root/hoshino/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_replayHJB_5Mto10M_restart/round_001/hold0001/train/0627_0211_hold0001_seed_1/ckpt-7000000",
+101:    "target_updates": 7000000,
+103:      "name": "hold0001",
+120:        "mean_abs_mc_v": 0.1148,
+122:        "mean_mc": 0.413,
+123:        "mean_v": 0.2986
+126:        "mean_abs_mc_v": 0.102,
+128:        "mean_mc": 0.5886,
+129:        "mean_v": 0.4925
+133:      "RL/Average Reward": 0.1899999976158142,
+144:    "name": "cont0001to0002",
+147:    "checkpoint": "/home/ubuntu-root/hoshino/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_replayHJB_5Mto10M_restart/round_001/cont0001to0002/train/0627_0211_cont0001to0002_seed_1/ckpt-7000000",
+148:    "target_updates": 7000000,
+150:      "name": "cont0001to0002",
+167:        "mean_abs_mc_v": 0.1244,
+169:        "mean_mc": 0.4142,
+170:        "mean_v": 0.2902
+173:        "mean_abs_mc_v": 0.1008,
+175:        "mean_mc": 0.5812,
+176:        "mean_v": 0.4851
+180:      "RL/Average Reward": 0.1899999976158142,
+191:    "name": "backoff0005",
+194:    "checkpoint": "/home/ubuntu-root/hoshino/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_replayHJB_5Mto10M_restart/round_002/backoff0005/train/0627_1217_backoff0005_seed_1/ckpt-7000000",
+195:    "target_updates": 7000000,
+197:      "name": "backoff0005",
+214:        "mean_abs_mc_v": 0.1178,
+216:        "mean_mc": 0.4125,
+217:        "mean_v": 0.2952
+220:        "mean_abs_mc_v": 0.0975,
+222:        "mean_mc": 0.5849,
+223:        "mean_v": 0.4942
+227:      "RL/Average Reward": 0.1899999976158142,
+238:    "name": "recover0000",
+241:    "checkpoint": "/home/ubuntu-root/hoshino/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_replayHJB_5Mto10M_restart/round_002/recover0000/train/0627_1217_recover0000_seed_1/ckpt-7000000",
+242:    "target_updates": 7000000,
+244:      "name": "recover0000",
+261:        "mean_abs_mc_v": 0.1271,
+263:        "mean_mc": 0.412,
+264:        "mean_v": 0.2851
+267:        "mean_abs_mc_v": 0.119,
+269:        "mean_mc": 0.5982,
+270:        "mean_v": 0.4826
+274:      "RL/Average Reward": 0.15000000596046448,
+285:    "name": "backoff00025",
+288:    "checkpoint": "/home/ubuntu-root/hoshino/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_replayHJB_5Mto10M_restart/round_003/backoff00025/train/0627_2221_backoff00025_seed_1/ckpt-7000000",
+289:    "target_updates": 7000000,
+291:      "name": "backoff00025",
+308:        "mean_abs_mc_v": 0.1239,
+310:        "mean_mc": 0.4173,
+311:        "mean_v": 0.2936
+314:        "mean_abs_mc_v": 0.1095,
+316:        "mean_mc": 0.5943,
+317:        "mean_v": 0.4889
+321:      "RL/Average Reward": 0.14000000059604645,
+332:    "name": "restart0005",
+335:    "checkpoint": "/home/ubuntu-root/hoshino/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_replayHJB_5Mto10M_restart/round_003/restart0005/train/0627_2221_restart0005_seed_1/ckpt-6000000",
+336:    "target_updates": 6000000,
+338:      "name": "restart0005",
+355:        "mean_abs_mc_v": 0.1119,
+357:        "mean_mc": 0.3954,
+358:        "mean_v": 0.2876
+361:        "mean_abs_mc_v": 0.1044,
+363:        "mean_mc": 0.5762,
+364:        "mean_v": 0.4862
+368:      "RL/Average Reward": 0.15000000596046448,
+379:    "name": "randTctrlR4",
+382:    "checkpoint": "/home/ubuntu-root/hoshino/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_replayHJB_5Mto10M_restart/round_004/randTctrlR4/train/0628_0825_randTctrlR4_seed_1/ckpt-6000000",
+383:    "target_updates": 6000000,
+385:      "name": "randTctrlR4",
+402:        "mean_abs_mc_v": 0.1454,
+404:        "mean_mc": 0.4074,
+405:        "mean_v": 0.2624
+408:        "mean_abs_mc_v": 0.1471,
+410:        "mean_mc": 0.5963,
+411:        "mean_v": 0.4529
+415:      "RL/Average Reward": 0.2199999988079071,
+426:    "name": "restart0001",
+429:    "checkpoint": "/home/ubuntu-root/hoshino/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_replayHJB_5Mto10M_restart/round_004/restart0001/train/0628_0825_restart0001_seed_1/ckpt-6000000",
+430:    "target_updates": 6000000,
+432:      "name": "restart0001",
+449:        "mean_abs_mc_v": 0.1319,
+451:        "mean_mc": 0.4078,
+452:        "mean_v": 0.2766
+455:        "mean_abs_mc_v": 0.131,
+457:        "mean_mc": 0.5968,
+458:        "mean_v": 0.4689
+462:      "RL/Average Reward": 0.1899999976158142,
+473:    "name": "contRandT0",
+476:    "checkpoint": "/home/ubuntu-root/hoshino/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_replayHJB_5Mto10M_restart/round_005/contRandT0/train/0628_1729_contRandT0_seed_1/ckpt-7000000",
+477:    "target_updates": 7000000,
+479:      "name": "contRandT0",
+496:        "mean_abs_mc_v": 0.1726,
+498:        "mean_mc": 0.4022,
+499:        "mean_v": 0.2296
+502:        "mean_abs_mc_v": 0.1923,
+504:        "mean_mc": 0.5935,
+505:        "mean_v": 0.4044
+509:      "RL/Average Reward": 0.10999999940395355,
+520:    "name": "slow00005",
+523:    "checkpoint": "/home/ubuntu-root/hoshino/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_replayHJB_5Mto10M_restart/round_005/slow00005/train/0628_1729_slow00005_seed_1/ckpt-7000000",
+524:    "target_updates": 7000000,
+526:      "name": "slow00005",
+543:        "mean_abs_mc_v": 0.1477,
+545:        "mean_mc": 0.406,
+546:        "mean_v": 0.2584
+549:        "mean_abs_mc_v": 0.151,
+551:        "mean_mc": 0.6005,
+552:        "mean_v": 0.4535
+556:      "RL/Average Reward": 0.09000000357627869,
+567:    "name": "randTctrlR6",
+570:    "checkpoint": "/home/ubuntu-root/hoshino/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_replayHJB_5Mto10M_restart/round_006/randTctrlR6/train/0629_0242_randTctrlR6_seed_1/ckpt-6000000",
+571:    "target_updates": 6000000,
+573:      "name": "randTctrlR6",
+590:        "mean_abs_mc_v": 0.1472,
+592:        "mean_mc": 0.4169,
+593:        "mean_v": 0.2698
+596:        "mean_abs_mc_v": 0.149,
+598:        "mean_mc": 0.5998,
+599:        "mean_v": 0.4538
+603:      "RL/Average Reward": 0.20000000298023224,
+614:    "name": "restart000025",
+617:    "checkpoint": "/home/ubuntu-root/hoshino/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_replayHJB_5Mto10M_restart/round_006/restart000025/train/0629_0242_restart000025_seed_1/ckpt-6000000",
+618:    "target_updates": 6000000,
+620:      "name": "restart000025",
+637:        "mean_abs_mc_v": 0.1434,
+639:        "mean_mc": 0.4116,
+640:        "mean_v": 0.2686
+643:        "mean_abs_mc_v": 0.1368,
+645:        "mean_mc": 0.5968,
+646:        "mean_v": 0.4639
+650:      "RL/Average Reward": 0.1899999976158142,
+661:    "name": "contR6zero",
+664:    "checkpoint": "/home/ubuntu-root/hoshino/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_replayHJB_5Mto10M_restart/round_007/contR6zero/train/0629_1157_contR6zero_seed_1/ckpt-7000000",
+665:    "target_updates": 7000000,
+667:      "name": "contR6zero",
+684:        "mean_abs_mc_v": 0.1536,
+686:        "mean_mc": 0.412,
+687:        "mean_v": 0.2586
+690:        "mean_abs_mc_v": 0.1611,
+692:        "mean_mc": 0.5977,
+693:        "mean_v": 0.4398
+697:      "RL/Average Reward": 0.23999999463558197,
+708:    "name": "micro00001",
+711:    "checkpoint": "/home/ubuntu-root/hoshino/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_replayHJB_5Mto10M_restart/round_007/micro00001/train/0629_1157_micro00001_seed_1/ckpt-7000000",
+712:    "target_updates": 7000000,
+714:      "name": "micro00001",
+731:        "mean_abs_mc_v": 0.1481,
+733:        "mean_mc": 0.4108,
+734:        "mean_v": 0.2627
+737:        "mean_abs_mc_v": 0.1467,
+739:        "mean_mc": 0.5994,
+740:        "mean_v": 0.4565
+744:      "RL/Average Reward": 0.1899999976158142,
+
+ succeeded in 0ms:
+3:    "name": "hold0001_R1",
+6:    "checkpoint": "/home/ubuntu-root/hoshino/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_replayHJB_7Mto10M_restart2/round_000/hold0001_R1/train/0630_0945_hold0001_R1_seed_1/ckpt-8000000",
+7:    "target_updates": 8000000,
+9:      "name": "hold0001_R1",
+26:        "mean_abs_mc_v": 0.1188,
+28:        "mean_mc": 0.4137,
+29:        "mean_v": 0.2953
+32:        "mean_abs_mc_v": 0.1021,
+34:        "mean_mc": 0.588,
+35:        "mean_v": 0.4916
+39:      "RL/Average Reward": 0.1599999964237213,
+50:    "name": "hold0002_R1",
+53:    "checkpoint": "/home/ubuntu-root/hoshino/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_replayHJB_7Mto10M_restart2/round_000/hold0002_R1/train/0630_0945_hold0002_R1_seed_1/ckpt-8000000",
+54:    "target_updates": 8000000,
+56:      "name": "hold0002_R1",
+73:        "mean_abs_mc_v": 0.1217,
+75:        "mean_mc": 0.4112,
+76:        "mean_v": 0.2896
+79:        "mean_abs_mc_v": 0.0938,
+81:        "mean_mc": 0.5781,
+82:        "mean_v": 0.4902
+86:      "RL/Average Reward": 0.2199999988079071,
+97:    "name": "hold0001_R2",
+100:    "checkpoint": "/home/ubuntu-root/hoshino/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_replayHJB_7Mto10M_restart2/round_001/hold0001_R2/train/0630_1958_hold0001_R2_seed_1/ckpt-9000000",
+101:    "target_updates": 9000000,
+103:      "name": "hold0001_R2",
+120:        "mean_abs_mc_v": 0.1211,
+122:        "mean_mc": 0.4166,
+123:        "mean_v": 0.2957
+126:        "mean_abs_mc_v": 0.1075,
+128:        "mean_mc": 0.5938,
+129:        "mean_v": 0.4912
+133:      "RL/Average Reward": 0.14000000059604645,
+144:    "name": "back002to0015_R2",
+147:    "checkpoint": "/home/ubuntu-root/hoshino/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_replayHJB_7Mto10M_restart2/round_001/back002to0015_R2/train/0630_1958_back002to0015_R2_seed_1/ckpt-9000000",
+148:    "target_updates": 9000000,
+150:      "name": "back002to0015_R2",
+167:        "mean_abs_mc_v": 0.1211,
+169:        "mean_mc": 0.4179,
+170:        "mean_v": 0.2982
+173:        "mean_abs_mc_v": 0.0921,
+175:        "mean_mc": 0.5851,
+176:        "mean_v": 0.4993
+180:      "RL/Average Reward": 0.1899999976158142,
+191:    "name": "hold0015_R3",
+194:    "checkpoint": "/home/ubuntu-root/hoshino/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_replayHJB_7Mto10M_restart2/round_002/hold0015_R3/train/0701_0606_hold0015_R3_seed_1/ckpt-10000000",
+195:    "target_updates": 10000000,
+197:      "name": "hold0015_R3",
+214:        "mean_abs_mc_v": 0.1218,
+216:        "mean_mc": 0.4236,
+217:        "mean_v": 0.3023
+220:        "mean_abs_mc_v": 0.1014,
+222:        "mean_mc": 0.592,
+223:        "mean_v": 0.4932
+227:      "RL/Average Reward": 0.23999999463558197,
+238:    "name": "ramp00175_R3",
+241:    "checkpoint": "/home/ubuntu-root/hoshino/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_replayHJB_7Mto10M_restart2/round_002/ramp00175_R3/train/0701_0606_ramp00175_R3_seed_1/ckpt-10000000",
+242:    "target_updates": 10000000,
+244:      "name": "ramp00175_R3",
+261:        "mean_abs_mc_v": 0.1284,
+263:        "mean_mc": 0.4213,
+264:        "mean_v": 0.2934
+267:        "mean_abs_mc_v": 0.1002,
+269:        "mean_mc": 0.587,
+270:        "mean_v": 0.4938
+274:      "RL/Average Reward": 0.23000000417232513,
+285:    "name": "hold0015_R4",
+288:    "checkpoint": "/home/ubuntu-root/hoshino/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_replayHJB_7Mto10M_restart2/round_003/hold0015_R4/train/0701_1619_hold0015_R4_seed_1/ckpt-11000000",
+289:    "target_updates": 11000000,
+291:      "name": "hold0015_R4",
+308:        "mean_abs_mc_v": 0.1211,
+310:        "mean_mc": 0.4238,
+311:        "mean_v": 0.3034
+314:        "mean_abs_mc_v": 0.0966,
+316:        "mean_mc": 0.5918,
+317:        "mean_v": 0.5008
+321:      "RL/Average Reward": 0.17000000178813934,
+332:    "name": "ramp001625_R4",
+335:    "checkpoint": "/home/ubuntu-root/hoshino/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_replayHJB_7Mto10M_restart2/round_003/ramp001625_R4/train/0701_1619_ramp001625_R4_seed_1/ckpt-11000000",
+336:    "target_updates": 11000000,
+338:      "name": "ramp001625_R4",
+355:        "mean_abs_mc_v": 0.1217,
+357:        "mean_mc": 0.4229,
+358:        "mean_v": 0.302
+361:        "mean_abs_mc_v": 0.0983,
+363:        "mean_mc": 0.5888,
+364:        "mean_v": 0.5003
+368:      "RL/Average Reward": 0.14000000059604645,
+379:    "name": "hold0015_R5",
+382:    "checkpoint": "/home/ubuntu-root/hoshino/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_replayHJB_7Mto10M_restart2/round_004/hold0015_R5/train/0702_0225_hold0015_R5_seed_1/ckpt-12000000",
+383:    "target_updates": 12000000,
+385:      "name": "hold0015_R5",
+402:        "mean_abs_mc_v": 0.1165,
+404:        "mean_mc": 0.4199,
+405:        "mean_v": 0.3047
+408:        "mean_abs_mc_v": 0.0956,
+410:        "mean_mc": 0.5868,
+411:        "mean_v": 0.4981
+415:      "RL/Average Reward": 0.1899999976158142,
+426:    "name": "ramp0015625_R5",
+429:    "checkpoint": "/home/ubuntu-root/hoshino/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_replayHJB_7Mto10M_restart2/round_004/ramp0015625_R5/train/0702_0225_ramp0015625_R5_seed_1/ckpt-12000000",
+430:    "target_updates": 12000000,
+432:      "name": "ramp0015625_R5",
+449:        "mean_abs_mc_v": 0.1171,
+451:        "mean_mc": 0.4239,
+452:        "mean_v": 0.307
+455:        "mean_abs_mc_v": 0.104,
+457:        "mean_mc": 0.5922,
+458:        "mean_v": 0.4947
+462:      "RL/Average Reward": 0.20999999344348907,
+
+ succeeded in 0ms:
+3:    "name": "ramp0to001",
+6:    "checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_000/ramp0to001/train/0625_1015_ramp0to001_seed_1/ckpt-6000000",
+7:    "target_updates": 6000000,
+9:      "name": "ramp0to001",
+26:        "mean_abs_mc_v": 0.1695,
+28:        "mean_mc": 0.4047,
+29:        "mean_v": 0.2359
+32:        "mean_abs_mc_v": 0.1675,
+34:        "mean_mc": 0.5756,
+35:        "mean_v": 0.4117
+39:      "RL/Average Reward": 0.12999999523162842,
+50:    "name": "ramp0to005",
+53:    "checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_000/ramp0to005/train/0625_1015_ramp0to005_seed_1/ckpt-6000000",
+54:    "target_updates": 6000000,
+56:      "name": "ramp0to005",
+73:        "mean_abs_mc_v": 0.1608,
+75:        "mean_mc": 0.3743,
+76:        "mean_v": 0.2151
+79:        "mean_abs_mc_v": 0.1633,
+81:        "mean_mc": 0.5672,
+82:        "mean_v": 0.4078
+86:      "RL/Average Reward": 0.15000000596046448,
+97:    "name": "hold005_from6M",
+100:    "checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_001/hold005_from6M/train/0626_0905_hold005_from6M_seed_1/ckpt-7000000",
+101:    "target_updates": 7000000,
+103:      "name": "hold005_from6M",
+120:        "mean_abs_mc_v": 0.2069,
+122:        "mean_mc": 0.3954,
+123:        "mean_v": 0.1899
+126:        "mean_abs_mc_v": 0.1694,
+128:        "mean_mc": 0.5676,
+129:        "mean_v": 0.4011
+133:      "RL/Average Reward": 0.14000000059604645,
+144:    "name": "ramp005to0075",
+147:    "checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_001/ramp005to0075/train/0626_0905_ramp005to0075_seed_1/ckpt-7000000",
+148:    "target_updates": 7000000,
+150:      "name": "ramp005to0075",
+167:        "mean_abs_mc_v": 0.2068,
+169:        "mean_mc": 0.3814,
+170:        "mean_v": 0.176
+173:        "mean_abs_mc_v": 0.18,
+175:        "mean_mc": 0.5708,
+176:        "mean_v": 0.3945
+180:      "RL/Average Reward": 0.10999999940395355,
+191:    "name": "backoff005to0025_from7M",
+194:    "checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_002/backoff005to0025_from7M/train/0627_0137_backoff005to0025_from7M_seed_1/ckpt-8000000",
+195:    "target_updates": 8000000,
+197:      "name": "backoff005to0025_from7M",
+214:        "mean_abs_mc_v": 0.2233,
+216:        "mean_mc": 0.3967,
+217:        "mean_v": 0.1739
+220:        "mean_abs_mc_v": 0.1964,
+222:        "mean_mc": 0.5589,
+223:        "mean_v": 0.3656
+227:      "RL/Average Reward": 0.15000000596046448,
+238:    "name": "restart_ramp0to0025",
+241:    "checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_002/restart_ramp0to0025/train/0627_0137_restart_ramp0to0025_seed_1/ckpt-6000000",
+242:    "target_updates": 6000000,
+244:      "name": "restart_ramp0to0025",
+261:        "mean_abs_mc_v": 0.1242,
+263:        "mean_mc": 0.3556,
+264:        "mean_v": 0.2408
+267:        "mean_abs_mc_v": 0.1311,
+269:        "mean_mc": 0.5051,
+270:        "mean_v": 0.4246
+274:      "RL/Average Reward": 0.1599999964237213,
+285:    "name": "hold0025_from6M",
+288:    "checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_003/hold0025_from6M/train/0627_1812_hold0025_from6M_seed_1/ckpt-7000000",
+289:    "target_updates": 7000000,
+291:      "name": "hold0025_from6M",
+308:        "mean_abs_mc_v": 0.1726,
+310:        "mean_mc": 0.406,
+311:        "mean_v": 0.2347
+314:        "mean_abs_mc_v": 0.1362,
+316:        "mean_mc": 0.5689,
+317:        "mean_v": 0.4386
+321:      "RL/Average Reward": 0.17000000178813934,
+332:    "name": "ramp0025to0035",
+335:    "checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_003/ramp0025to0035/train/0627_1812_ramp0025to0035_seed_1/ckpt-7000000",
+336:    "target_updates": 7000000,
+338:      "name": "ramp0025to0035",
+355:        "mean_abs_mc_v": 0.1802,
+357:        "mean_mc": 0.4001,
+358:        "mean_v": 0.2207
+361:        "mean_abs_mc_v": 0.1443,
+363:        "mean_mc": 0.5646,
+364:        "mean_v": 0.4253
+368:      "RL/Average Reward": 0.10999999940395355,
+379:    "name": "hold0025_from7M",
+382:    "checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_004/hold0025_from7M/train/0628_1048_hold0025_from7M_seed_1/ckpt-8000000",
+383:    "target_updates": 8000000,
+385:      "name": "hold0025_from7M",
+402:        "mean_abs_mc_v": 0.1717,
+404:        "mean_mc": 0.4042,
+405:        "mean_v": 0.2356
+408:        "mean_abs_mc_v": 0.1422,
+410:        "mean_mc": 0.574,
+411:        "mean_v": 0.4363
+415:      "RL/Average Reward": 0.1599999964237213,
+426:    "name": "slow0025to003",
+429:    "checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_004/slow0025to003/train/0628_1048_slow0025to003_seed_1/ckpt-8000000",
+430:    "target_updates": 8000000,
+432:      "name": "slow0025to003",
+449:        "mean_abs_mc_v": 0.1759,
+451:        "mean_mc": 0.399,
+452:        "mean_v": 0.2255
+455:        "mean_abs_mc_v": 0.1545,
+457:        "mean_mc": 0.5729,
+458:        "mean_v": 0.4232
+462:      "RL/Average Reward": 0.27000001072883606,
+473:    "name": "hold003_from8M",
+476:    "checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_005/hold003_from8M/train/0629_0341_hold003_from8M_seed_1/ckpt-9000000",
+477:    "target_updates": 9000000,
+479:      "name": "hold003_from8M",
+496:        "mean_abs_mc_v": 0.1604,
+498:        "mean_mc": 0.3973,
+499:        "mean_v": 0.2392
+502:        "mean_abs_mc_v": 0.1409,
+504:        "mean_mc": 0.5746,
+505:        "mean_v": 0.4388
+509:      "RL/Average Reward": 0.15000000596046448,
+520:    "name": "slow003to00325",
+523:    "checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_005/slow003to00325/train/0629_0341_slow003to00325_seed_1/ckpt-9000000",
+524:    "target_updates": 9000000,
+526:      "name": "slow003to00325",
+543:        "mean_abs_mc_v": 0.16,
+545:        "mean_mc": 0.39,
+546:        "mean_v": 0.2336
+549:        "mean_abs_mc_v": 0.1486,
+551:        "mean_mc": 0.5734,
+552:        "mean_v": 0.4296
+556:      "RL/Average Reward": 0.17000000178813934,
+567:    "name": "hold00325_from9M",
+570:    "checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_006/hold00325_from9M/train/0629_2018_hold00325_from9M_seed_1/ckpt-10000000",
+571:    "target_updates": 10000000,
+573:      "name": "hold00325_from9M",
+590:        "mean_abs_mc_v": 0.1606,
+592:        "mean_mc": 0.393,
+593:        "mean_v": 0.2343
+596:        "mean_abs_mc_v": 0.1512,
+598:        "mean_mc": 0.5758,
+599:        "mean_v": 0.4285
+603:      "RL/Average Reward": 0.05999999865889549,
+614:    "name": "slow00325to0035",
+617:    "checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_006/slow00325to0035/train/0629_2018_slow00325to0035_seed_1/ckpt-10000000",
+618:    "target_updates": 10000000,
+620:      "name": "slow00325to0035",
+637:        "mean_abs_mc_v": 0.159,
+639:        "mean_mc": 0.3935,
+640:        "mean_v": 0.2366
+643:        "mean_abs_mc_v": 0.1423,
+645:        "mean_mc": 0.5713,
+646:        "mean_v": 0.4338
+650:      "RL/Average Reward": 0.1899999976158142,
+661:    "name": "hold0035_from10M",
+664:    "checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_007/hold0035_from10M/train/0630_1304_hold0035_from10M_seed_1/ckpt-11000000",
+665:    "target_updates": 11000000,
+667:      "name": "hold0035_from10M",
+684:        "mean_abs_mc_v": 0.1596,
+686:        "mean_mc": 0.3994,
+687:        "mean_v": 0.241
+690:        "mean_abs_mc_v": 0.1475,
+692:        "mean_mc": 0.5765,
+693:        "mean_v": 0.4339
+697:      "RL/Average Reward": 0.2199999988079071,
+708:    "name": "slow0035to00375",
+711:    "checkpoint": "/home/ubuntu/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/round_007/slow0035to00375/train/0630_1304_slow0035to00375_seed_1/ckpt-11000000",
+712:    "target_updates": 11000000,
+714:      "name": "slow0035to00375",
+731:        "mean_abs_mc_v": 0.1668,
+733:        "mean_mc": 0.4006,
+734:        "mean_v": 0.2345
+737:        "mean_abs_mc_v": 0.1505,
+739:        "mean_mc": 0.5755,
+740:        "mean_v": 0.429
+744:      "RL/Average Reward": 0.1599999964237213,
+
+exec
+/bin/bash -lc "ls -la scheduling_experiment/fixed2randT_replayExpandHJB_5Mto10M && find scheduling_experiment/fixed2randT_replayExpandHJB_5Mto10M -maxdepth 3 -type f -name '*plan.json' -o -name 'all_results.json'" in /home/ubuntu-root/hoshino/ProbReachPIRL/ProbReachPIRL
+ succeeded in 0ms:
+total 20
+drwxrwxr-x  3 ubuntu-root ubuntu-root 4096 Jul  5 00:59 .
+drwxrwxr-x 11 ubuntu-root ubuntu-root 4096 Jul  4 14:35 ..
+-rw-rw-r--  1 ubuntu-root ubuntu-root 5255 Jul  5 00:59 all_results.json
+drwxrwxr-x  4 ubuntu-root ubuntu-root 4096 Jul  5 00:59 round_000
+scheduling_experiment/fixed2randT_replayExpandHJB_5Mto10M/round_000/plan.json
+scheduling_experiment/fixed2randT_replayExpandHJB_5Mto10M/all_results.json
+
+codex
+The round-000 replay_expand branch with jitter `0.01` is the safer continuation: reward is higher than the `0.005` branch, MC is stable, and calibration is only moderately worse. I’m going to hold jitter at `0.01` and test one hold plus one small weight increase, instead of expanding the collocation neighborhood further.
+codex
+I’m writing the requested `round_001_plan.json` now with exactly two candidates, both continuing from the best safe 6M replay_expand checkpoint.
+apply patch
+patch: completed
+/home/ubuntu-root/hoshino/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_replayExpandHJB_5Mto10M/round_001_plan.json
+diff --git a/scheduling_experiment/fixed2randT_replayExpandHJB_5Mto10M/round_001_plan.json b/scheduling_experiment/fixed2randT_replayExpandHJB_5Mto10M/round_001_plan.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..5b3d4fcdaf1dacd3957ea33b127937b2526ba917
+--- /dev/null
++++ b/scheduling_experiment/fixed2randT_replayExpandHJB_5Mto10M/round_001_plan.json
+@@ -0,0 +1,53 @@
++{
++  "round_note": "Continue the safer 6M replay_expand001 branch: reward stayed comparable to replay-HJB and meanMC was stable, but calibration error is still worse than replay-HJB. Hold jitter at 0.01 and compare a pure hold against a very small HJB/BDR increase before any further expansion.",
++  "candidates": [
++    {
++      "name": "hold0001_expand001_R1",
++      "start_checkpoint": "scheduling_experiment/fixed2randT_replayExpandHJB_5Mto10M/round_000/ramp0to0001_expand001/train/0704_1419_ramp0to0001_expand001_seed_1/ckpt-6000000",
++      "schedule_initial": [
++        1.0,
++        0.0001,
++        0.0001
++      ],
++      "schedule_final": [
++        1.0,
++        0.0001,
++        0.0001
++      ],
++      "schedule_center": 500000,
++      "schedule_sharpness": 1e-5,
++      "pinn_sample_mode": "replay_expand",
++      "pinn_replay_fraction": 1.0,
++      "pinn_replay_jitter": 0.0,
++      "pinn_expand_jitter_initial": 0.01,
++      "pinn_expand_jitter_final": 0.01,
++      "pinn_expand_center": 500000,
++      "pinn_expand_sharpness": 1e-5,
++      "pinn_expand_time_base": "local"
++    },
++    {
++      "name": "ramp0001to00025_expand001_R1",
++      "start_checkpoint": "scheduling_experiment/fixed2randT_replayExpandHJB_5Mto10M/round_000/ramp0to0001_expand001/train/0704_1419_ramp0to0001_expand001_seed_1/ckpt-6000000",
++      "schedule_initial": [
++        1.0,
++        0.0001,
++        0.0001
++      ],
++      "schedule_final": [
++        1.0,
++        0.00025,
++        0.00025
++      ],
++      "schedule_center": 500000,
++      "schedule_sharpness": 1e-5,
++      "pinn_sample_mode": "replay_expand",
++      "pinn_replay_fraction": 1.0,
++      "pinn_replay_jitter": 0.0,
++      "pinn_expand_jitter_initial": 0.01,
++      "pinn_expand_jitter_final": 0.01,
++      "pinn_expand_center": 500000,
++      "pinn_expand_sharpness": 1e-5,
++      "pinn_expand_time_base": "local"
++    }
++  ]
++}
+
+diff --git a/scheduling_experiment/fixed2randT_replayExpandHJB_5Mto10M/round_001_plan.json b/scheduling_experiment/fixed2randT_replayExpandHJB_5Mto10M/round_001_plan.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..5b3d4fcdaf1dacd3957ea33b127937b2526ba917
+--- /dev/null
++++ b/scheduling_experiment/fixed2randT_replayExpandHJB_5Mto10M/round_001_plan.json
+@@ -0,0 +1,53 @@
++{
++  "round_note": "Continue the safer 6M replay_expand001 branch: reward stayed comparable to replay-HJB and meanMC was stable, but calibration error is still worse than replay-HJB. Hold jitter at 0.01 and compare a pure hold against a very small HJB/BDR increase before any further expansion.",
++  "candidates": [
++    {
++      "name": "hold0001_expand001_R1",
++      "start_checkpoint": "scheduling_experiment/fixed2randT_replayExpandHJB_5Mto10M/round_000/ramp0to0001_expand001/train/0704_1419_ramp0to0001_expand001_seed_1/ckpt-6000000",
++      "schedule_initial": [
++        1.0,
++        0.0001,
++        0.0001
++      ],
++      "schedule_final": [
++        1.0,
++        0.0001,
++        0.0001
++      ],
++      "schedule_center": 500000,
++      "schedule_sharpness": 1e-5,
++      "pinn_sample_mode": "replay_expand",
++      "pinn_replay_fraction": 1.0,
++      "pinn_replay_jitter": 0.0,
++      "pinn_expand_jitter_initial": 0.01,
++      "pinn_expand_jitter_final": 0.01,
++      "pinn_expand_center": 500000,
++      "pinn_expand_sharpness": 1e-5,
++      "pinn_expand_time_base": "local"
++    },
++    {
++      "name": "ramp0001to00025_expand001_R1",
++      "start_checkpoint": "scheduling_experiment/fixed2randT_replayExpandHJB_5Mto10M/round_000/ramp0to0001_expand001/train/0704_1419_ramp0to0001_expand001_seed_1/ckpt-6000000",
++      "schedule_initial": [
++        1.0,
++        0.0001,
++        0.0001
++      ],
++      "schedule_final": [
++        1.0,
++        0.00025,
++        0.00025
++      ],
++      "schedule_center": 500000,
++      "schedule_sharpness": 1e-5,
++      "pinn_sample_mode": "replay_expand",
++      "pinn_replay_fraction": 1.0,
++      "pinn_replay_jitter": 0.0,
++      "pinn_expand_jitter_initial": 0.01,
++      "pinn_expand_jitter_final": 0.01,
++      "pinn_expand_center": 500000,
++      "pinn_expand_sharpness": 1e-5,
++      "pinn_expand_time_base": "local"
++    }
++  ]
++}
+
+exec
+/bin/bash -lc 'wc -c scheduling_experiment/fixed2randT_replayExpandHJB_5Mto10M/round_001_plan.json' in /home/ubuntu-root/hoshino/ProbReachPIRL/ProbReachPIRL
+ succeeded in 0ms:
+1850 scheduling_experiment/fixed2randT_replayExpandHJB_5Mto10M/round_001_plan.json
+
+exec
+/bin/bash -lc 'python -m json.tool scheduling_experiment/fixed2randT_replayExpandHJB_5Mto10M/round_001_plan.json >/tmp/round_001_plan.validated.json' in /home/ubuntu-root/hoshino/ProbReachPIRL/ProbReachPIRL
+ succeeded in 0ms:
+diff --git a/scheduling_experiment/fixed2randT_replayExpandHJB_5Mto10M/round_001_plan.json b/scheduling_experiment/fixed2randT_replayExpandHJB_5Mto10M/round_001_plan.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..5b3d4fcdaf1dacd3957ea33b127937b2526ba917
+--- /dev/null
++++ b/scheduling_experiment/fixed2randT_replayExpandHJB_5Mto10M/round_001_plan.json
+@@ -0,0 +1,53 @@
++{
++  "round_note": "Continue the safer 6M replay_expand001 branch: reward stayed comparable to replay-HJB and meanMC was stable, but calibration error is still worse than replay-HJB. Hold jitter at 0.01 and compare a pure hold against a very small HJB/BDR increase before any further expansion.",
++  "candidates": [
++    {
++      "name": "hold0001_expand001_R1",
++      "start_checkpoint": "scheduling_experiment/fixed2randT_replayExpandHJB_5Mto10M/round_000/ramp0to0001_expand001/train/0704_1419_ramp0to0001_expand001_seed_1/ckpt-6000000",
++      "schedule_initial": [
++        1.0,
++        0.0001,
++        0.0001
++      ],
++      "schedule_final": [
++        1.0,
++        0.0001,
++        0.0001
++      ],
++      "schedule_center": 500000,
++      "schedule_sharpness": 1e-5,
++      "pinn_sample_mode": "replay_expand",
++      "pinn_replay_fraction": 1.0,
++      "pinn_replay_jitter": 0.0,
++      "pinn_expand_jitter_initial": 0.01,
++      "pinn_expand_jitter_final": 0.01,
++      "pinn_expand_center": 500000,
++      "pinn_expand_sharpness": 1e-5,
++      "pinn_expand_time_base": "local"
++    },
++    {
++      "name": "ramp0001to00025_expand001_R1",
++      "start_checkpoint": "scheduling_experiment/fixed2randT_replayExpandHJB_5Mto10M/round_000/ramp0to0001_expand001/train/0704_1419_ramp0to0001_expand001_seed_1/ckpt-6000000",
++      "schedule_initial": [
++        1.0,
++        0.0001,
++        0.0001
++      ],
++      "schedule_final": [
++        1.0,
++        0.00025,
++        0.00025
++      ],
++      "schedule_center": 500000,
++      "schedule_sharpness": 1e-5,
++      "pinn_sample_mode": "replay_expand",
++      "pinn_replay_fraction": 1.0,
++      "pinn_replay_jitter": 0.0,
++      "pinn_expand_jitter_initial": 0.01,
++      "pinn_expand_jitter_final": 0.01,
++      "pinn_expand_center": 500000,
++      "pinn_expand_sharpness": 1e-5,
++      "pinn_expand_time_base": "local"
++    }
++  ]
++}
+
+codex
+Wrote and validated the JSON plan at:
+
+[scheduling_experiment/fixed2randT_replayExpandHJB_5Mto10M/round_001_plan.json](/home/ubuntu-root/hoshino/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_replayExpandHJB_5Mto10M/round_001_plan.json)
+
+It contains exactly 2 candidates, both continuing from the safer `expand001` 6M checkpoint, holding jitter at `0.01`, with one hold and one cautious HJB/BDR increase to `0.00025`.
+diff --git a/scheduling_experiment/fixed2randT_replayExpandHJB_5Mto10M/round_001_plan.json b/scheduling_experiment/fixed2randT_replayExpandHJB_5Mto10M/round_001_plan.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..5b3d4fcdaf1dacd3957ea33b127937b2526ba917
+--- /dev/null
++++ b/scheduling_experiment/fixed2randT_replayExpandHJB_5Mto10M/round_001_plan.json
+@@ -0,0 +1,53 @@
++{
++  "round_note": "Continue the safer 6M replay_expand001 branch: reward stayed comparable to replay-HJB and meanMC was stable, but calibration error is still worse than replay-HJB. Hold jitter at 0.01 and compare a pure hold against a very small HJB/BDR increase before any further expansion.",
++  "candidates": [
++    {
++      "name": "hold0001_expand001_R1",
++      "start_checkpoint": "scheduling_experiment/fixed2randT_replayExpandHJB_5Mto10M/round_000/ramp0to0001_expand001/train/0704_1419_ramp0to0001_expand001_seed_1/ckpt-6000000",
++      "schedule_initial": [
++        1.0,
++        0.0001,
++        0.0001
++      ],
++      "schedule_final": [
++        1.0,
++        0.0001,
++        0.0001
++      ],
++      "schedule_center": 500000,
++      "schedule_sharpness": 1e-5,
++      "pinn_sample_mode": "replay_expand",
++      "pinn_replay_fraction": 1.0,
++      "pinn_replay_jitter": 0.0,
++      "pinn_expand_jitter_initial": 0.01,
++      "pinn_expand_jitter_final": 0.01,
++      "pinn_expand_center": 500000,
++      "pinn_expand_sharpness": 1e-5,
++      "pinn_expand_time_base": "local"
++    },
++    {
++      "name": "ramp0001to00025_expand001_R1",
++      "start_checkpoint": "scheduling_experiment/fixed2randT_replayExpandHJB_5Mto10M/round_000/ramp0to0001_expand001/train/0704_1419_ramp0to0001_expand001_seed_1/ckpt-6000000",
++      "schedule_initial": [
++        1.0,
++        0.0001,
++        0.0001
++      ],
++      "schedule_final": [
++        1.0,
++        0.00025,
++        0.00025
++      ],
++      "schedule_center": 500000,
++      "schedule_sharpness": 1e-5,
++      "pinn_sample_mode": "replay_expand",
++      "pinn_replay_fraction": 1.0,
++      "pinn_replay_jitter": 0.0,
++      "pinn_expand_jitter_initial": 0.01,
++      "pinn_expand_jitter_final": 0.01,
++      "pinn_expand_center": 500000,
++      "pinn_expand_sharpness": 1e-5,
++      "pinn_expand_time_base": "local"
++    }
++  ]
++}
+
+tokens used
+44,778
+Wrote and validated the JSON plan at:
+
+[scheduling_experiment/fixed2randT_replayExpandHJB_5Mto10M/round_001_plan.json](/home/ubuntu-root/hoshino/ProbReachPIRL/ProbReachPIRL/scheduling_experiment/fixed2randT_replayExpandHJB_5Mto10M/round_001_plan.json)
+
+It contains exactly 2 candidates, both continuing from the safer `expand001` 6M checkpoint, holding jitter at `0.01`, with one hold and one cautious HJB/BDR increase to `0.00025`.

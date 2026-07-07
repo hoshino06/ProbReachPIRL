@@ -1,0 +1,53 @@
+{
+  "round_note": "Round 003 kept MC stable at expand jitter 0.01, but reward was only safe on the hold0001 branch and weakened on the 0.00015 ramp. Use 10M as a milestone: continue the safest hold branch, and test a cautious ramp-down from the better-calibrated 0.00015 branch without expanding jitter.",
+  "candidates": [
+    {
+      "name": "hold0001_expand001_R4",
+      "start_checkpoint": "scheduling_experiment/fixed2randT_replayExpandHJB_5Mto10M/round_003/hold0001_expand001_R3/train/0705_2255_hold0001_expand001_R3_seed_1/ckpt-9000000",
+      "schedule_initial": [
+        1.0,
+        0.0001,
+        0.0001
+      ],
+      "schedule_final": [
+        1.0,
+        0.0001,
+        0.0001
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05,
+      "pinn_sample_mode": "replay_expand",
+      "pinn_replay_fraction": 1.0,
+      "pinn_replay_jitter": 0.0,
+      "pinn_expand_jitter_initial": 0.01,
+      "pinn_expand_jitter_final": 0.01,
+      "pinn_expand_center": 500000,
+      "pinn_expand_sharpness": 1e-05,
+      "pinn_expand_time_base": "local"
+    },
+    {
+      "name": "ramp00015to000125_expand001_R4",
+      "start_checkpoint": "scheduling_experiment/fixed2randT_replayExpandHJB_5Mto10M/round_003/ramp0001to00015_expand001_R3/train/0705_2255_ramp0001to00015_expand001_R3_seed_1/ckpt-9000000",
+      "schedule_initial": [
+        1.0,
+        0.00015,
+        0.00015
+      ],
+      "schedule_final": [
+        1.0,
+        0.000125,
+        0.000125
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05,
+      "pinn_sample_mode": "replay_expand",
+      "pinn_replay_fraction": 1.0,
+      "pinn_replay_jitter": 0.0,
+      "pinn_expand_jitter_initial": 0.01,
+      "pinn_expand_jitter_final": 0.01,
+      "pinn_expand_center": 500000,
+      "pinn_expand_sharpness": 1e-05,
+      "pinn_expand_time_base": "local"
+    }
+  ]
+}

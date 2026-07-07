@@ -1,0 +1,53 @@
+{
+  "round_note": "Round 001 kept MC reachability stable but reward softened, so continue from the better-calibrated hold0001_expand001_R1 checkpoint, hold replay_expand jitter at 0.01, and test only a small HJB/BDR increase against a stability hold before pushing toward the 10M milestone.",
+  "candidates": [
+    {
+      "name": "hold0001_expand001_R2",
+      "start_checkpoint": "scheduling_experiment/fixed2randT_replayExpandHJB_5Mto10M/round_001/hold0001_expand001_R1/train/0705_0100_hold0001_expand001_R1_seed_1/ckpt-7000000",
+      "schedule_initial": [
+        1.0,
+        0.0001,
+        0.0001
+      ],
+      "schedule_final": [
+        1.0,
+        0.0001,
+        0.0001
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05,
+      "pinn_sample_mode": "replay_expand",
+      "pinn_replay_fraction": 1.0,
+      "pinn_replay_jitter": 0.0,
+      "pinn_expand_jitter_initial": 0.01,
+      "pinn_expand_jitter_final": 0.01,
+      "pinn_expand_center": 500000,
+      "pinn_expand_sharpness": 1e-05,
+      "pinn_expand_time_base": "local"
+    },
+    {
+      "name": "ramp0001to000175_expand001_R2",
+      "start_checkpoint": "scheduling_experiment/fixed2randT_replayExpandHJB_5Mto10M/round_001/hold0001_expand001_R1/train/0705_0100_hold0001_expand001_R1_seed_1/ckpt-7000000",
+      "schedule_initial": [
+        1.0,
+        0.0001,
+        0.0001
+      ],
+      "schedule_final": [
+        1.0,
+        0.000175,
+        0.000175
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05,
+      "pinn_sample_mode": "replay_expand",
+      "pinn_replay_fraction": 1.0,
+      "pinn_replay_jitter": 0.0,
+      "pinn_expand_jitter_initial": 0.01,
+      "pinn_expand_jitter_final": 0.01,
+      "pinn_expand_center": 500000,
+      "pinn_expand_sharpness": 1e-05,
+      "pinn_expand_time_base": "local"
+    }
+  ]
+}
