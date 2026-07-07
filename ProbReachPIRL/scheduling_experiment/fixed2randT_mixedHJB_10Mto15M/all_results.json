@@ -1,0 +1,166 @@
+[
+  {
+    "name": "mix90_expand003_R1",
+    "start_checkpoint": "scheduling_experiment/fixed2randT_replayHJB_7Mto10M_restart2/round_002/hold0015_R3/train/0701_0606_hold0015_R3_seed_1/ckpt-10000000",
+    "start_itr": 10000000,
+    "checkpoint": "scheduling_experiment/fixed2randT_mixedHJB_10Mto15M/round_000/mix90_expand003_R1/train/0706_2022_mix90_expand003_R1_seed_1/ckpt-11000000",
+    "target_updates": 11000000,
+    "candidate": {
+      "name": "mix90_expand003_R1",
+      "start_checkpoint": "scheduling_experiment/fixed2randT_replayHJB_7Mto10M_restart2/round_002/hold0015_R3/train/0701_0606_hold0015_R3_seed_1/ckpt-10000000",
+      "schedule_initial": [
+        1.0,
+        0.0015,
+        0.0015
+      ],
+      "schedule_final": [
+        1.0,
+        0.0015,
+        0.0015
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05,
+      "pinn_sample_mode": "replay_expand",
+      "pinn_replay_fraction": 0.9,
+      "pinn_replay_jitter": 0.0,
+      "pinn_expand_jitter_initial": 0.02,
+      "pinn_expand_jitter_final": 0.03,
+      "pinn_expand_center": 500000,
+      "pinn_expand_sharpness": 1e-05,
+      "pinn_expand_time_base": "local"
+    },
+    "effective_training_env": {
+      "CASE": "drift",
+      "DRIFT_DT": "0.1",
+      "DRIFT_RESET_MIXTURE_PROBS": "0.3,0.3,0.4",
+      "DRIFT_RESET_MODE": "mixture",
+      "DRIFT_RESET_SCALE": "1.0",
+      "DRIFT_RESET_T_MAX": "5.0",
+      "DRIFT_RESET_T_MIN": "0.0",
+      "DRIFT_RESET_T_MODE": "random",
+      "HJB_LAPLACIAN_MODE": "loop",
+      "INITIAL_EXPLORATION_POLICY": "policy",
+      "METHOD": "scheduling",
+      "NUM_WORKERS": "2",
+      "PINN_EXPAND_CENTER": "500000",
+      "PINN_EXPAND_JITTER_FINAL": "0.03",
+      "PINN_EXPAND_JITTER_INITIAL": "0.02",
+      "PINN_EXPAND_SHARPNESS": "1e-05",
+      "PINN_EXPAND_TIME_BASE": "local",
+      "PINN_REPLAY_FRACTION": "0.9",
+      "PINN_REPLAY_JITTER": "0.0",
+      "PINN_SAMPLE_MODE": "replay_expand",
+      "SCHEDULE_TIME_BASE": "local",
+      "SEEDS": "1"
+    },
+    "mc_metrics": {
+      "beta-r": {
+        "mean_abs_mc_v": 0.11741010610195142,
+        "max_abs_mc_v": 0.9937953711487353,
+        "mean_mc": 0.4159079084287201,
+        "mean_v": 0.3010053667527766
+      },
+      "ey-epsi": {
+        "mean_abs_mc_v": 0.09538615739535813,
+        "max_abs_mc_v": 0.8145179562270641,
+        "mean_mc": 0.5722554630593132,
+        "mean_v": 0.48958381589039085
+      }
+    },
+    "tensorboard_last": {
+      "RL/Average Reward": 0.17000000178813934,
+      "Loss/RL": 0.006836882792413235,
+      "Loss/HJB": 0.1984332799911499,
+      "Loss/HJB_replay": 0.37216857075691223,
+      "Loss/BDR": 0.05943482369184494,
+      "Weights/RL": 1.0,
+      "Weights/HJB": 0.001500000013038516,
+      "Weights/BDR": 0.001500000013038516,
+      "PINN/Replay Jitter": 0.029999999329447746
+    },
+    "recovered": true,
+    "recovery_note": "Recovered from completed MC npz files after plot_drift_mc_reachability processes hung before subprocess return."
+  },
+  {
+    "name": "mix75_expand002_R1",
+    "start_checkpoint": "scheduling_experiment/fixed2randT_replayHJB_7Mto10M_restart2/round_002/hold0015_R3/train/0701_0606_hold0015_R3_seed_1/ckpt-10000000",
+    "start_itr": 10000000,
+    "checkpoint": "scheduling_experiment/fixed2randT_mixedHJB_10Mto15M/round_000/mix75_expand002_R1/train/0706_2022_mix75_expand002_R1_seed_1/ckpt-11000000",
+    "target_updates": 11000000,
+    "candidate": {
+      "name": "mix75_expand002_R1",
+      "start_checkpoint": "scheduling_experiment/fixed2randT_replayHJB_7Mto10M_restart2/round_002/hold0015_R3/train/0701_0606_hold0015_R3_seed_1/ckpt-10000000",
+      "schedule_initial": [
+        1.0,
+        0.0015,
+        0.0015
+      ],
+      "schedule_final": [
+        1.0,
+        0.0015,
+        0.0015
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05,
+      "pinn_sample_mode": "replay_expand",
+      "pinn_replay_fraction": 0.75,
+      "pinn_replay_jitter": 0.0,
+      "pinn_expand_jitter_initial": 0.015,
+      "pinn_expand_jitter_final": 0.02,
+      "pinn_expand_center": 500000,
+      "pinn_expand_sharpness": 1e-05,
+      "pinn_expand_time_base": "local"
+    },
+    "effective_training_env": {
+      "CASE": "drift",
+      "DRIFT_DT": "0.1",
+      "DRIFT_RESET_MIXTURE_PROBS": "0.3,0.3,0.4",
+      "DRIFT_RESET_MODE": "mixture",
+      "DRIFT_RESET_SCALE": "1.0",
+      "DRIFT_RESET_T_MAX": "5.0",
+      "DRIFT_RESET_T_MIN": "0.0",
+      "DRIFT_RESET_T_MODE": "random",
+      "HJB_LAPLACIAN_MODE": "loop",
+      "INITIAL_EXPLORATION_POLICY": "policy",
+      "METHOD": "scheduling",
+      "NUM_WORKERS": "2",
+      "PINN_EXPAND_CENTER": "500000",
+      "PINN_EXPAND_JITTER_FINAL": "0.02",
+      "PINN_EXPAND_JITTER_INITIAL": "0.015",
+      "PINN_EXPAND_SHARPNESS": "1e-05",
+      "PINN_EXPAND_TIME_BASE": "local",
+      "PINN_REPLAY_FRACTION": "0.75",
+      "PINN_REPLAY_JITTER": "0.0",
+      "PINN_SAMPLE_MODE": "replay_expand",
+      "SCHEDULE_TIME_BASE": "local",
+      "SEEDS": "1"
+    },
+    "mc_metrics": {
+      "beta-r": {
+        "mean_abs_mc_v": 0.10947346967729091,
+        "max_abs_mc_v": 0.9941926929168403,
+        "mean_mc": 0.40244536940686787,
+        "mean_v": 0.29989399338442024
+      },
+      "ey-epsi": {
+        "mean_abs_mc_v": 0.09531718482424473,
+        "max_abs_mc_v": 0.819036528468132,
+        "mean_mc": 0.5485171696149844,
+        "mean_v": 0.48673099482541365
+      }
+    },
+    "tensorboard_last": {
+      "RL/Average Reward": 0.14000000059604645,
+      "Loss/RL": 0.002989153377711773,
+      "Loss/HJB": 0.18761442601680756,
+      "Loss/HJB_replay": 0.306663453578949,
+      "Loss/BDR": 0.10632450878620148,
+      "Weights/RL": 1.0,
+      "Weights/HJB": 0.001500000013038516,
+      "Weights/BDR": 0.001500000013038516,
+      "PINN/Replay Jitter": 0.019999999552965164
+    },
+    "recovered": true,
+    "recovery_note": "Recovered from completed MC npz files after plot_drift_mc_reachability processes hung before subprocess return."
+  }
+]
