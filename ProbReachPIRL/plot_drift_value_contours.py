@@ -140,7 +140,7 @@ def target_rectangle(env, plane: str):
     return x0, x1, y0, y1
 
 
-def add_target_patch(ax, env, plane: str, label: str = "target window") -> None:
+def add_target_patch(ax, env, plane: str, label: str = "target set") -> None:
     x0, x1, y0, y1 = target_rectangle(env, plane)
     ax.fill([x0, x1, x1, x0, x0], [y0, y0, y1, y1, y0],
             facecolor="none", edgecolor="black", linewidth=1.8,
@@ -224,144 +224,158 @@ def save_npz(path: str, V: np.ndarray, meta: dict,
     np.savez(path, **data)
 
 
+DEFAULT_PIRL_CHECKPOINT = (
+    "scheduling_experiment/randT_replayHJB_2Mto10M/round_008/"
+    "const00075_10m/train/0702_1114_const00075_10m_seed_1/ckpt-11000000"
+)
+
+
+def plot_value_panel(ax, env, V: np.ndarray, meta: dict, plane: str, title: str,
+                     levels: int, vector_field: Optional[Tuple[np.ndarray, np.ndarray]],
+                     vector_stride: int, vector_scale: Optional[float]):
+    V = np.clip(V, 0.0, 1.0)
+    x = meta["x"]
+    y = meta["y"]
+    cf = ax.contourf(
+        x,
+        y,
+        V.T,
+        levels=np.linspace(0.0, 1.0, levels),
+        vmin=0.0,
+        vmax=1.0,
+        cmap="viridis",
+        extend="both",
+    )
+    cs = ax.contour(x, y, V.T, levels=np.linspace(0.0, 1.0, 6), linewidths=0.5, alpha=0.55)
+    ax.clabel(cs, inline=True, fontsize=7, fmt="%.1f")
+
+    if vector_field is not None:
+        x_dot, y_dot = vector_field
+        stride = max(1, int(vector_stride))
+        X, Y = np.meshgrid(x, y, indexing="xy")
+        ax.quiver(
+            X[::stride, ::stride],
+            Y[::stride, ::stride],
+            x_dot.T[::stride, ::stride],
+            y_dot.T[::stride, ::stride],
+            color="white",
+            edgecolor="black",
+            linewidth=0.2,
+            alpha=0.72,
+            pivot="mid",
+            angles="xy",
+            scale_units="xy",
+            scale=vector_scale,
+            width=0.0025,
+        )
+
+    add_target_patch(ax, env, plane)
+    ax.set_xlabel(meta["xlabel"].replace("beta", r"$\beta$").replace("epsi", r"$e_\psi$").replace("ey", r"$e_y$"))
+    ax.set_ylabel(meta["ylabel"].replace("r", r"$r$").replace("epsi", r"$e_\psi$").replace("ey", r"$e_y$"))
+    ax.set_title(title)
+    return cf
+
+
+def evaluate_checkpoint(agent_cls, env, checkpoint: str, label: str, args, mu: float):
+    agent = agent_cls.from_checkpoint(checkpoint, device=args.device, learner=False)
+    results = {}
+    for plane in ["beta_r", "ey_epsi"]:
+        V, meta, states = evaluate_value_grid(
+            agent,
+            env,
+            plane=plane,
+            T=args.T,
+            mu=mu,
+            num_grid=args.num_grid,
+            batch_size=args.batch_size,
+        )
+        vector = None
+        actions = None
+        if not args.no_vector_field:
+            xdot, ydot, actions = evaluate_vector_field(
+                agent,
+                env,
+                plane=plane,
+                states_phys=states,
+                num_grid=args.num_grid,
+                batch_size=args.batch_size,
+            )
+            vector = (xdot, ydot)
+
+        save_npz(
+            os.path.join(args.out_dir, f"value_grid_{label}_{plane}.npz"),
+            V,
+            meta,
+            vector_field=vector,
+            actions_phys=actions,
+        )
+        results[plane] = {"V": V, "meta": meta, "vector": vector}
+    return results
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--checkpoint", 
-                        #default="logs/drift/td3/0603_1707_seed_2/ckpt-1000000",
-                        default="logs/drift/td3/0608_1021_pre0603_td3_reset15_seed_2/ckpt-1500000",
-                        #default="logs/drift/scheduling/0606_2325_sched_weakPINN_c700_s5e-6_f244_seed_2/ckpt-800000",
-                        help="Path to trained checkpoint, e.g., logs/drift/.../ckpt-800000")
+    parser.add_argument("--checkpoint", default=DEFAULT_PIRL_CHECKPOINT,
+                        help="Checkpoint to plot. Defaults to the selected PIRL 11M checkpoint.")
+    parser.add_argument("--label", default="pirl_11M",
+                        help="Short label used in output NPZ filenames.")
     parser.add_argument("--out_dir", default="plot/drift_value_contours")
-    parser.add_argument("--env_cls", default="examples.env_drifting_control.Env",
-                        help="Environment class path")
-    parser.add_argument("--agent_cls", default="agent.TD3_PIRL_ray.PIRLAgent",
-                        help="Agent class path")
-    parser.add_argument("--T", type=float, default=5.0,
-                        help="Remaining time used in the value slice")
-    parser.add_argument("--mu", default="target",
-                        help="Friction coefficient for the slice. Use 'target' for env.mu_d.")
-    parser.add_argument("--num_grid", type=int, default=151)
+    parser.add_argument("--env_cls", default="examples.env_drifting_control.Env")
+    parser.add_argument("--agent_cls", default="agent.TD3_PIRL_ray.PIRLAgent")
+    parser.add_argument("--T", type=float, default=5.0)
+    parser.add_argument("--mu", default="target")
+    parser.add_argument("--num_grid", type=int, default=101)
     parser.add_argument("--batch_size", type=int, default=4096)
-    parser.add_argument("--device", default="auto")
+    parser.add_argument("--device", default="cpu")
     parser.add_argument("--levels", type=int, default=41)
-    parser.add_argument("--vmin", type=float, default=0.0)
-    parser.add_argument("--vmax", type=float, default=1.0)
-    parser.add_argument("--no_fixed_value_range", action="store_true",
-                        help="Use each plot's min/max instead of [vmin, vmax].")
-    parser.add_argument("--no_vector_field", action="store_true",
-                        help="Do not overlay the closed-loop drift vector field.")
-    parser.add_argument("--vector_stride", type=int, default=8,
-                        help="Plot one vector every N grid points.")
-    parser.add_argument("--vector_scale", type=float, default=None,
-                        help="Matplotlib quiver scale. Smaller arrows for larger values; default auto.")
+    parser.add_argument("--no_vector_field", action="store_true")
+    parser.add_argument("--vector_stride", type=int, default=8)
+    parser.add_argument("--vector_scale", type=float, default=None)
     args = parser.parse_args()
 
     os.makedirs(args.out_dir, exist_ok=True)
     set_paper_style()
 
     Env = import_from_string(args.env_cls)
-    PIRLAgent = import_from_string(args.agent_cls)
-
+    Agent = import_from_string(args.agent_cls)
     env = Env()
     mu = resolve_mu(env, args.mu)
-    agent = PIRLAgent.from_checkpoint(args.checkpoint, device=args.device, learner=False)
 
-    vmin = None if args.no_fixed_value_range else args.vmin
-    vmax = None if args.no_fixed_value_range else args.vmax
+    result = evaluate_checkpoint(Agent, env, args.checkpoint, args.label, args, mu)
 
-    V_br, meta_br, states_br = evaluate_value_grid(
-        agent, env, plane="beta_r", T=args.T, mu=mu,
-        num_grid=args.num_grid, batch_size=args.batch_size,
-    )
-    V_ee, meta_ee, states_ee = evaluate_value_grid(
-        agent, env, plane="ey_epsi", T=args.T, mu=mu,
-        num_grid=args.num_grid, batch_size=args.batch_size,
-    )
-
-    vector_br = None
-    vector_ee = None
-    actions_br = None
-    actions_ee = None
-    if not args.no_vector_field:
-        xdot_br, ydot_br, actions_br = evaluate_vector_field(
-            agent, env, plane="beta_r", states_phys=states_br,
-            num_grid=args.num_grid, batch_size=args.batch_size,
+    plane_specs = [
+        ("beta_r", "", "fig_section_vb3_value_contour_beta_r"),
+        ("ey_epsi", "", "fig_section_vb3_value_contour_ey_epsi"),
+    ]
+    for plane, title, stem in plane_specs:
+        fig, ax = plt.subplots(figsize=(5.4, 4.4), constrained_layout=True)
+        cf = plot_value_panel(
+            ax,
+            env,
+            result[plane]["V"],
+            result[plane]["meta"],
+            plane,
+            title,
+            args.levels,
+            result[plane]["vector"],
+            args.vector_stride,
+            args.vector_scale,
         )
-        xdot_ee, ydot_ee, actions_ee = evaluate_vector_field(
-            agent, env, plane="ey_epsi", states_phys=states_ee,
-            num_grid=args.num_grid, batch_size=args.batch_size,
-        )
-        vector_br = (xdot_br, ydot_br)
-        vector_ee = (xdot_ee, ydot_ee)
-
-    save_npz(os.path.join(args.out_dir, "value_grid_beta_r.npz"), V_br, meta_br,
-             vector_field=vector_br, actions_phys=actions_br)
-    save_npz(os.path.join(args.out_dir, "value_grid_ey_epsi.npz"), V_ee, meta_ee,
-             vector_field=vector_ee, actions_phys=actions_ee)
-
-    # Combined two-panel figure
-    fig, axes = plt.subplots(1, 2, figsize=(10.0, 4.2), constrained_layout=True)
-    cf0 = plot_value_contour(
-        axes[0], env, V_br, meta_br, "beta_r", args.levels, vmin, vmax,
-        title=rf"Value contour on $\beta$-$r$ plane ($T={args.T:g}$ s, $\mu={mu:.2f}$)",
-        vector_field=vector_br, vector_stride=args.vector_stride, vector_scale=args.vector_scale,
-    )
-    cf1 = plot_value_contour(
-        axes[1], env, V_ee, meta_ee, "ey_epsi", args.levels, vmin, vmax,
-        title=rf"Value contour on $e_y$-$e_\psi$ plane ($T={args.T:g}$ s, $\mu={mu:.2f}$)",
-        vector_field=vector_ee, vector_stride=args.vector_stride, vector_scale=args.vector_scale,
-    )
-    cbar = fig.colorbar(cf1, ax=axes, shrink=0.92, pad=0.02)
-    cbar.set_label(r"learned value $V(x)=Q(x,\pi(x))$")
-    handles, labels = axes[0].get_legend_handles_labels()
-    fig.legend(handles, labels, loc="lower center", ncol=3, frameon=True,
-               bbox_to_anchor=(0.5, -0.06))
-
-    for ext in ["png"]: #["png", "pdf"]:
-        path = os.path.join(args.out_dir, f"value_contours_combined.{ext}")
-        fig.savefig(path, dpi=300, bbox_inches="tight")
-        print(f"Saved: {path}")
-    plt.show()
-    plt.close(fig)
-
-    # Separate beta-r figure
-    fig, ax = plt.subplots(figsize=(5.4, 4.4), constrained_layout=True)
-    cf = plot_value_contour(ax, env, V_br, meta_br, "beta_r", args.levels, vmin, vmax,
-                            title=rf"$\beta$-$r$ value contour ($T={args.T:g}$ s, $\mu={mu:.2f}$)",
-                            vector_field=vector_br, vector_stride=args.vector_stride,
-                            vector_scale=args.vector_scale)
-    cbar = fig.colorbar(cf, ax=ax)
-    cbar.set_label(r"learned value $V(x)$")
-    ax.legend(frameon=True, loc="best")
-    for ext in ["png"]: #["png", "pdf"]:
-        path = os.path.join(args.out_dir, f"value_contour_beta_r.{ext}")
-        fig.savefig(path, dpi=300, bbox_inches="tight")
-        print(f"Saved: {path}")
-    plt.close(fig)
-
-    # Separate ey-epsi figure
-    fig, ax = plt.subplots(figsize=(5.4, 4.4), constrained_layout=True)
-    cf = plot_value_contour(ax, env, V_ee, meta_ee, "ey_epsi", args.levels, vmin, vmax,
-                            title=rf"$e_y$-$e_\psi$ value contour ($T={args.T:g}$ s, $\mu={mu:.2f}$)",
-                            vector_field=vector_ee, vector_stride=args.vector_stride,
-                            vector_scale=args.vector_scale)
-    cbar = fig.colorbar(cf, ax=ax)
-    cbar.set_label(r"learned value $V(x)$")
-    ax.legend(frameon=True, loc="best")
-    for ext in ["png"]: #["png", "pdf"]:
-        path = os.path.join(args.out_dir, f"value_contour_ey_epsi.{ext}")
-        fig.savefig(path, dpi=300, bbox_inches="tight")
-        print(f"Saved: {path}")
-    plt.close(fig)
+        cbar = fig.colorbar(cf, ax=ax)
+        cbar.set_label(r"learned reachability value $V(x)$")
+        ax.legend(frameon=True, loc="best")
+        for ext in ["png", "pdf"]:
+            path = os.path.join(args.out_dir, f"{stem}.{ext}")
+            fig.savefig(path, dpi=300, bbox_inches="tight")
+            print(f"Saved: {path}")
+        plt.close(fig)
 
     print("--------------------------------------------")
-    print(f"checkpoint: {args.checkpoint}")
-    print(f"out_dir:    {args.out_dir}")
-    print(f"T:          {args.T:g}")
-    print(f"mu:         {mu:.4f}")
-    print(f"vectors:    {'off' if args.no_vector_field else f'on, stride={args.vector_stride}'}")
-    print(f"beta-r V:   min={np.nanmin(V_br):.4f}, max={np.nanmax(V_br):.4f}")
-    print(f"ey-epsi V:  min={np.nanmin(V_ee):.4f}, max={np.nanmax(V_ee):.4f}")
+    print(f"checkpoint:      {args.checkpoint}")
+    print(f"out_dir:         {args.out_dir}")
+    print(f"T:               {args.T:g}")
+    print(f"mu:              {mu:.4f}")
+    print(f"grid:            {args.num_grid} x {args.num_grid}")
     print("--------------------------------------------")
 
 
