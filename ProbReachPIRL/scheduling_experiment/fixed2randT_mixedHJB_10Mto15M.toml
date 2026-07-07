@@ -1,0 +1,109 @@
+# PIRL scheduling experiment config for reducing global HJB loss from 10M to 15M
+# while preserving MC reachability.
+#
+# This follows fixed2randT_replayExpandHJB_10Mto15M, but changes the objective
+# from local replay-neighborhood preservation to lowering uniform-sampled HJB
+# loss without sacrificing beta-r / ey-epsi MC reachability.
+#
+# Run with:
+#   conda activate pirl
+#   python scheduling_experiment/run_scheduling_experiment.py --config scheduling_experiment/fixed2randT_mixedHJB_10Mto15M.toml
+
+[experiment]
+baseline_checkpoint = "scheduling_experiment/fixed2randT_replayHJB_7Mto10M_restart2/round_002/hold0015_R3/train/0701_0606_hold0015_R3_seed_1/ckpt-10000000"
+rounds = 5
+updates_per_round = 1_000_000
+target_total_updates = 15_000_000
+max_parallel_candidates = 2
+learner_num_gpus = 0.16
+advisor_command = "codex exec"
+
+# One checkpoint per continuation block and lighter TensorBoard logs.
+checkpoint_freq = 1_000_000
+log_freq = 5_000
+
+[training_env]
+CASE = "drift"
+METHOD = "scheduling"
+SEEDS = "1"
+NUM_WORKERS = 2
+
+DRIFT_DT = 0.1
+DRIFT_RESET_SCALE = 1.0
+DRIFT_RESET_MODE = "mixture"
+DRIFT_RESET_MIXTURE_PROBS = "0.3,0.3,0.4" # beta_r, ey_epsi, full
+DRIFT_RESET_T_MODE = "random"
+DRIFT_RESET_T_MIN = 0.0
+DRIFT_RESET_T_MAX = 5.0
+
+INITIAL_EXPLORATION_POLICY = "policy"
+PINN_SAMPLE_MODE = "replay_expand"
+PINN_REPLAY_FRACTION = 0.9
+PINN_REPLAY_JITTER = 0.0
+
+HJB_LAPLACIAN_MODE = "loop"
+SCHEDULE_TIME_BASE = "local"
+
+[evaluation]
+T = 5.0
+num_grid = 31
+num_rollouts = 16
+device = "cuda"
+
+[advisor_context]
+manual_notes = """
+- This experiment starts from the same 10M checkpoint as fixed2randT_replayExpandHJB_10Mto15M and again targets 15M.
+- The prior 10M-to-15M replay_expand run preserved MC reachability, but Loss/HJB on uniform collocation stayed high relative to Loss/HJB_replay.
+- Primary objective: reduce uniform-sampled Loss/HJB while preserving MC reachability. Treat Loss/HJB_replay as secondary; a lower replay loss alone is not success.
+- Guardrails: keep beta-r meanMC near or above 0.41 and ey-epsi meanMC near or above 0.58 when possible. If both meanMC values drop materially, back off uniform fraction, jitter, or HJB/BDR weights.
+- Prefer changing the collocation distribution before increasing HJB/BDR weights. The first lever is PINN_REPLAY_FRACTION below 1.0, which mixes uniform PDE points into replay_expand training.
+- Interpret PINN_REPLAY_FRACTION as replay PDE fraction: 0.90 means 10% uniform, 0.75 means 25% uniform.
+- Keep HJB/BDR around 0.0015 for the first round so the effect of adding uniform collocation is identifiable.
+- Increase uniform fraction gradually: try 10-25% uniform first; do not jump below 0.5 replay fraction unless MC remains stable.
+- Use replay_expand jitter only as local thickening. Jitter 0.0125-0.02 was too local to lower global HJB reliably; try 0.02-0.05 cautiously, but avoid sacrificing MC for lower uniform Loss/HJB.
+- Candidate selection should rank runs by: (1) no MC collapse, (2) lower Loss/HJB, (3) acceptable mean|MC-V|, (4) stable reward.
+- Compare against fixed2randT_replayExpandHJB_10Mto15M/all_results.json, especially the 15M hold0015_expand00125_R5 result: beta-r meanMC 0.4194, ey-epsi meanMC 0.5858, uniform Loss/HJB 0.5676.
+"""
+reference_paths = [
+  "logs/drift/README.md",
+  "scheduling_experiment/fixed2randT_replayHJB_7Mto10M_restart2.toml",
+  "scheduling_experiment/fixed2randT_replayHJB_7Mto10M_restart2/all_results.json",
+  "scheduling_experiment/fixed2randT_replayExpandHJB_10Mto15M.toml",
+  "scheduling_experiment/fixed2randT_replayExpandHJB_10Mto15M/all_results.json",
+  "scheduling_experiment/fixed2randT_uniformHJB_5Mto10M/all_results.json",
+]
+
+[initial_plan]
+round_note = "Start from the best 10M replay-HJB checkpoint and test modest uniform-HJB mixing while holding HJB/BDR weights fixed at 0.0015. The goal is to lower uniform Loss/HJB without disturbing MC reachability."
+
+[[initial_plan.candidates]]
+name = "mix90_expand003_R1"
+start_checkpoint = "scheduling_experiment/fixed2randT_replayHJB_7Mto10M_restart2/round_002/hold0015_R3/train/0701_0606_hold0015_R3_seed_1/ckpt-10000000"
+schedule_initial = [1.0, 0.0015, 0.0015]
+schedule_final = [1.0, 0.0015, 0.0015]
+schedule_center = 500_000
+schedule_sharpness = 0.00001
+pinn_sample_mode = "replay_expand"
+pinn_replay_fraction = 0.90
+pinn_replay_jitter = 0.0
+pinn_expand_jitter_initial = 0.02
+pinn_expand_jitter_final = 0.03
+pinn_expand_center = 500_000
+pinn_expand_sharpness = 0.00001
+pinn_expand_time_base = "local"
+
+[[initial_plan.candidates]]
+name = "mix75_expand002_R1"
+start_checkpoint = "scheduling_experiment/fixed2randT_replayHJB_7Mto10M_restart2/round_002/hold0015_R3/train/0701_0606_hold0015_R3_seed_1/ckpt-10000000"
+schedule_initial = [1.0, 0.0015, 0.0015]
+schedule_final = [1.0, 0.0015, 0.0015]
+schedule_center = 500_000
+schedule_sharpness = 0.00001
+pinn_sample_mode = "replay_expand"
+pinn_replay_fraction = 0.75
+pinn_replay_jitter = 0.0
+pinn_expand_jitter_initial = 0.015
+pinn_expand_jitter_final = 0.02
+pinn_expand_center = 500_000
+pinn_expand_sharpness = 0.00001
+pinn_expand_time_base = "local"
