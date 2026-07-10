@@ -50,6 +50,13 @@ def set_paper_style() -> None:
     })
 
 
+def backend_supports_show() -> bool:
+    """Return True for interactive backends such as Spyder's plots pane."""
+    backend = plt.get_backend().lower()
+    noninteractive_tokens = ("agg", "pdf", "svg", "ps", "cairo", "template")
+    return not any(token in backend for token in noninteractive_tokens)
+
+
 def import_from_string(path: str):
     """Import 'module:object' or 'module.object'."""
     if ":" in path:
@@ -148,10 +155,10 @@ def add_target_patch(ax, env, plane: str, label: str = "target set") -> None:
 
     if plane == "beta_r":
         ax.scatter(env.beta_d, env.r_d, marker="x", s=70, linewidths=2.0,
-                   color="black", label="drift equilibrium")
+                   color="black", label="equilibrium")
     elif plane == "ey_epsi":
         ax.scatter(env.ey_d, env.epsi_d, marker="x", s=70, linewidths=2.0,
-                   color="black", label="target center")
+                   color="black", label="equilibrium")
 
 
 def plot_value_contour(ax, env, V: np.ndarray, meta: dict, plane: str,
@@ -225,8 +232,8 @@ def save_npz(path: str, V: np.ndarray, meta: dict,
 
 
 DEFAULT_PIRL_CHECKPOINT = (
-    "scheduling_experiment/randT_replayHJB_2Mto10M/round_008/"
-    "const00075_10m/train/0702_1114_const00075_10m_seed_1/ckpt-11000000"
+    "scheduling_experiment/fixed2randT_mixedHJB_10Mto15M/round_004/"
+    "mix85_back003_R5/train/0708_2216_mix85_back003_R5_seed_1/ckpt-15000000"
 )
 
 
@@ -316,25 +323,26 @@ def evaluate_checkpoint(agent_cls, env, checkpoint: str, label: str, args, mu: f
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--checkpoint", default=DEFAULT_PIRL_CHECKPOINT,
-                        help="Checkpoint to plot. Defaults to the selected PIRL 11M checkpoint.")
-    parser.add_argument("--label", default="pirl_11M",
+                        help="Checkpoint to plot. Defaults to the selected mixed-HJB PIRL 15M checkpoint.")
+    parser.add_argument("--label", default="pirl_15M_mix85",
                         help="Short label used in output NPZ filenames.")
     parser.add_argument("--out_dir", default="plot/drift_value_contours")
     parser.add_argument("--env_cls", default="examples.env_drifting_control.Env")
     parser.add_argument("--agent_cls", default="agent.TD3_PIRL_ray.PIRLAgent")
     parser.add_argument("--T", type=float, default=5.0)
     parser.add_argument("--mu", default="target")
-    parser.add_argument("--num_grid", type=int, default=101)
+    parser.add_argument("--num_grid", type=int, default=31)
     parser.add_argument("--batch_size", type=int, default=4096)
     parser.add_argument("--device", default="cpu")
     parser.add_argument("--levels", type=int, default=41)
     parser.add_argument("--no_vector_field", action="store_true")
-    parser.add_argument("--vector_stride", type=int, default=8)
+    parser.add_argument("--vector_stride", type=int, default=1)
     parser.add_argument("--vector_scale", type=float, default=None)
     args = parser.parse_args()
 
     os.makedirs(args.out_dir, exist_ok=True)
     set_paper_style()
+    show_figures = backend_supports_show()
 
     Env = import_from_string(args.env_cls)
     Agent = import_from_string(args.agent_cls)
@@ -363,12 +371,43 @@ def main() -> None:
         )
         cbar = fig.colorbar(cf, ax=ax)
         cbar.set_label(r"learned reachability value $V(x)$")
-        ax.legend(frameon=True, loc="best")
+        legend_loc = "lower right" if plane == "beta_r" else "lower left"
+        ax.legend(frameon=True, loc=legend_loc)
         for ext in ["png", "pdf"]:
             path = os.path.join(args.out_dir, f"{stem}.{ext}")
             fig.savefig(path, dpi=300, bbox_inches="tight")
             print(f"Saved: {path}")
+        if not show_figures:
+            plt.close(fig)
+
+    fig, axes = plt.subplots(1, 2, figsize=(10.8, 4.4), constrained_layout=True)
+    combined_cf = None
+    for ax, (plane, title, _) in zip(axes, plane_specs):
+        combined_cf = plot_value_panel(
+            ax,
+            env,
+            result[plane]["V"],
+            result[plane]["meta"],
+            plane,
+            title,
+            args.levels,
+            result[plane]["vector"],
+            args.vector_stride,
+            args.vector_scale,
+        )
+        legend_loc = "lower right" if plane == "beta_r" else "best"
+        ax.legend(frameon=True, loc=legend_loc)
+    if combined_cf is not None:
+        cbar = fig.colorbar(combined_cf, ax=axes.ravel().tolist(), shrink=0.95)
+        cbar.set_label(r"learned reachability value $V(x)$")
+    for ext in ["png", "pdf"]:
+        path = os.path.join(args.out_dir, f"fig_section_vb3_value_contours.{ext}")
+        fig.savefig(path, dpi=300, bbox_inches="tight")
+        print(f"Saved: {path}")
+    if not show_figures:
         plt.close(fig)
+    else:
+        plt.show()
 
     print("--------------------------------------------")
     print(f"checkpoint:      {args.checkpoint}")

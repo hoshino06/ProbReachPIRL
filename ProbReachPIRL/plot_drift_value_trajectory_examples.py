@@ -38,6 +38,13 @@ class ExamplePoint:
     value: float
 
 
+DEFAULT_MANUAL_EXAMPLES = (
+    "High V:-0.40,1.50;"
+    "Moderate V:-0.48,0.00;"
+    "Low V:-0.40,-1.30"
+)
+
+
 def states_from_beta_r(env, T: float, mu: float, beta: np.ndarray, r: np.ndarray) -> np.ndarray:
     target = env.get_drift_target(mu)
     beta = np.asarray(beta, dtype=np.float32)
@@ -59,6 +66,54 @@ def states_from_beta_r(env, T: float, mu: float, beta: np.ndarray, r: np.ndarray
     return states.astype(np.float32)
 
 
+def parse_manual_examples(spec: str) -> list[tuple[str, float, float]]:
+    examples = []
+    for item in spec.split(";"):
+        item = item.strip()
+        if not item:
+            continue
+        if ":" in item:
+            name, coords = item.split(":", 1)
+        else:
+            name = f"Example {len(examples) + 1}"
+            coords = item
+        beta_str, r_str = coords.split(",", 1)
+        examples.append((name.strip(), float(beta_str), float(r_str)))
+    if not examples:
+        raise ValueError("No manual examples were provided.")
+    return examples
+
+
+def evaluate_examples_value(agent, env, states: np.ndarray, batch_size: int) -> np.ndarray:
+    states_scaled = env.scale_state(states)
+    values = []
+    for start in range(0, len(states_scaled), batch_size):
+        vb = agent.get_value(states_scaled[start:start + batch_size])
+        values.append(np.asarray(vb, dtype=np.float64).reshape(-1))
+    return np.clip(np.concatenate(values, axis=0), 0.0, 1.0)
+
+
+def manual_beta_r_examples(agent, env, T: float, mu: float, spec: str, batch_size: int):
+    parsed = parse_manual_examples(spec)
+    beta = np.asarray([item[1] for item in parsed], dtype=np.float32)
+    r = np.asarray([item[2] for item in parsed], dtype=np.float32)
+    states = states_from_beta_r(env, T, mu, beta, r)
+    values = evaluate_examples_value(agent, env, states, batch_size)
+    examples = []
+    for (name, beta_i, r_i), state, value in zip(parsed, states, values):
+        examples.append(
+            ExamplePoint(
+                name=name,
+                target_value=float(value),
+                state=state.copy(),
+                beta=float(beta_i),
+                r=float(r_i),
+                value=float(value),
+            )
+        )
+    return examples
+
+
 def select_from_mc_npz(env, T: float, mu: float, selection_npz: str):
     data = np.load(selection_npz)
     V = np.clip(data["V"], 0.0, 1.0)
@@ -76,9 +131,11 @@ def select_from_mc_npz(env, T: float, mu: float, selection_npz: str):
     candidate_mask = safe & ~target & interior
 
     specs = [
-        ("High V", 0.9, 0.95, 1.0),
-        ("Moderate V", 0.7, 0.9, 1.0),
-        ("Low V", 0.02, 0.0, 1.5),
+        # Prefer a visually coherent left-side cut through the beta-r contour:
+        # high-value interior, transition band, then low-value unsafe side.
+        ("High V", 0.95, 1.0, 1.0, -0.26, 1.50),
+        ("Moderate V", 0.76, 0.81, 1.5, -0.47, 0.00),
+        ("Low V", 0.01, 0.05, 0.2, -0.42, -1.00),
     ]
     examples = []
     selected = np.zeros(states.shape[0], dtype=bool)
@@ -86,8 +143,16 @@ def select_from_mc_npz(env, T: float, mu: float, selection_npz: str):
     probs = P.reshape(-1)
     beta = B.reshape(-1)
     r = R.reshape(-1)
-    for name, target_value, target_prob, prob_weight in specs:
-        score = np.abs(values - target_value) + prob_weight * np.abs(probs - target_prob)
+    for name, target_value, target_prob, prob_weight, preferred_beta, preferred_r in specs:
+        location_score = 0.45 * np.hypot(
+            (beta - preferred_beta) / env.beta_max,
+            (r - preferred_r) / env.r_max,
+        )
+        score = (
+            np.abs(values - target_value)
+            + prob_weight * np.abs(probs - target_prob)
+            + location_score
+        )
         score[~candidate_mask] = np.inf
         for prev in np.flatnonzero(selected):
             dist = np.hypot((beta - beta[prev]) / env.beta_max, (r - r[prev]) / env.r_max)
@@ -108,7 +173,7 @@ def select_from_mc_npz(env, T: float, mu: float, selection_npz: str):
 
 
 def select_beta_r_examples(agent, env, T: float, mu: float, num_grid: int, batch_size: int,
-                           selection_npz: str | None):
+                           selection_npz: str | None, manual_examples: str | None):
     V, meta, states = evaluate_value_grid(
         agent,
         env,
@@ -118,6 +183,8 @@ def select_beta_r_examples(agent, env, T: float, mu: float, num_grid: int, batch
         num_grid=num_grid,
         batch_size=batch_size,
     )
+    if manual_examples:
+        return manual_beta_r_examples(agent, env, T, mu, manual_examples, batch_size), V, meta
     if selection_npz and os.path.exists(selection_npz):
         return select_from_mc_npz(env, T, mu, selection_npz), V, meta
 
@@ -412,7 +479,7 @@ def plot_outcome_bars(ax, results, colors, show_title: bool = False):
     ax.set_ylabel("rollout fraction")
     if show_title:
         ax.set_title("Closed-loop outcomes")
-    ax.legend(frameon=True, loc="upper center", bbox_to_anchor=(0.5, 1.18), ncol=3, fontsize=9)
+    ax.legend(frameon=True, loc="upper center", bbox_to_anchor=(0.5, 1.11), ncol=3, fontsize=9)
 
 
 def save_figure(fig, out_dir: str, stem: str):
@@ -430,14 +497,23 @@ def main():
     parser.add_argument("--agent_cls", default="agent.TD3_PIRL_ray.PIRLAgent")
     parser.add_argument("--T", type=float, default=5.0)
     parser.add_argument("--mu", default="target")
-    parser.add_argument("--num_grid", type=int, default=101)
-    parser.add_argument("--num_rollouts", type=int, default=32)
+    parser.add_argument("--num_grid", type=int, default=31)
+    parser.add_argument("--num_rollouts", type=int, default=100)
     parser.add_argument("--batch_size", type=int, default=4096)
     parser.add_argument("--action_batch_size", type=int, default=8192)
     parser.add_argument("--device", default="cpu")
-    parser.add_argument("--seed", type=int, default=7)
+    parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--deterministic", action="store_true")
     parser.add_argument("--levels", type=int, default=41)
+    parser.add_argument(
+        "--manual_examples",
+        default=DEFAULT_MANUAL_EXAMPLES,
+        help=(
+            "Semicolon-separated beta-r initial states, e.g. "
+            "'High V:-0.40,1.50;Moderate V:-0.48,0.00;Low V:-0.42,-1.00'. "
+            "Use an empty string to fall back to grid/MC-based selection."
+        ),
+    )
     parser.add_argument(
         "--xy_auto_aspect",
         action="store_true",
@@ -446,8 +522,8 @@ def main():
     parser.add_argument(
         "--selection_npz",
         default=(
-            "scheduling_experiment/fixed2randT_mixedHJB_10Mto15M/round_001/"
-            "mix85_expand003_R2/eval/mc_reachability_beta_r.npz"
+            "scheduling_experiment/fixed2randT_mixedHJB_10Mto15M/round_004/"
+            "mix85_back003_R5/eval/mc_reachability_beta_r.npz"
         ),
         help="Optional MC-eval NPZ used only to choose representative High/Mid/Low states.",
     )
@@ -470,6 +546,7 @@ def main():
         num_grid=args.num_grid,
         batch_size=args.batch_size,
         selection_npz=args.selection_npz,
+        manual_examples=args.manual_examples,
     )
     V_ey_epsi, meta_ey_epsi, _ = evaluate_value_grid(
         agent,
