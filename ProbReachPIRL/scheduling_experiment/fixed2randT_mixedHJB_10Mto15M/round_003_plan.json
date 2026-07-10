@@ -1,0 +1,53 @@
+{
+  "round_note": "Continue beyond 13M with weights held at 0.0015. Primary follows mix90_back because reward, MC, and uniform HJB were strongest; alternate follows mix80 with the same 20% uniform mix to preserve its better calibration while testing slightly thicker local replay_expand support.",
+  "candidates": [
+    {
+      "name": "mix90_expand0035_R4",
+      "start_checkpoint": "scheduling_experiment/fixed2randT_mixedHJB_10Mto15M/round_002/mix90_expand003_back_R3/train/0707_2126_mix90_expand003_back_R3_seed_1/ckpt-13000000",
+      "schedule_initial": [
+        1.0,
+        0.0015,
+        0.0015
+      ],
+      "schedule_final": [
+        1.0,
+        0.0015,
+        0.0015
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05,
+      "pinn_sample_mode": "replay_expand",
+      "pinn_replay_fraction": 0.9,
+      "pinn_replay_jitter": 0.0,
+      "pinn_expand_jitter_initial": 0.03,
+      "pinn_expand_jitter_final": 0.035,
+      "pinn_expand_center": 500000,
+      "pinn_expand_sharpness": 1e-05,
+      "pinn_expand_time_base": "local"
+    },
+    {
+      "name": "mix80_expand0035_R4",
+      "start_checkpoint": "scheduling_experiment/fixed2randT_mixedHJB_10Mto15M/round_002/mix80_expand003_R3/train/0707_2126_mix80_expand003_R3_seed_1/ckpt-13000000",
+      "schedule_initial": [
+        1.0,
+        0.0015,
+        0.0015
+      ],
+      "schedule_final": [
+        1.0,
+        0.0015,
+        0.0015
+      ],
+      "schedule_center": 500000,
+      "schedule_sharpness": 1e-05,
+      "pinn_sample_mode": "replay_expand",
+      "pinn_replay_fraction": 0.8,
+      "pinn_replay_jitter": 0.0,
+      "pinn_expand_jitter_initial": 0.03,
+      "pinn_expand_jitter_final": 0.035,
+      "pinn_expand_center": 500000,
+      "pinn_expand_sharpness": 1e-05,
+      "pinn_expand_time_base": "local"
+    }
+  ]
+}

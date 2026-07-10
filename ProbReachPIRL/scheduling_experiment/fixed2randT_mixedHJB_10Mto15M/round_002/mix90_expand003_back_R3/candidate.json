@@ -1,0 +1,24 @@
+{
+  "name": "mix90_expand003_back_R3",
+  "start_checkpoint": "scheduling_experiment/fixed2randT_mixedHJB_10Mto15M/round_001/mix90_expand0035_R2/train/0707_0901_mix90_expand0035_R2_seed_1/ckpt-12000000",
+  "schedule_initial": [
+    1.0,
+    0.0015,
+    0.0015
+  ],
+  "schedule_final": [
+    1.0,
+    0.0015,
+    0.0015
+  ],
+  "schedule_center": 500000,
+  "schedule_sharpness": 1e-05,
+  "pinn_sample_mode": "replay_expand",
+  "pinn_replay_fraction": 0.9,
+  "pinn_replay_jitter": 0.0,
+  "pinn_expand_jitter_initial": 0.035,
+  "pinn_expand_jitter_final": 0.03,
+  "pinn_expand_center": 500000,
+  "pinn_expand_sharpness": 1e-05,
+  "pinn_expand_time_base": "local"
+}
