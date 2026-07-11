@@ -215,16 +215,20 @@ def merge_series(runs: Iterable[EventRun], tag: str, xmin: float, xmax: float) -
 def smooth_series(data: np.ndarray, window: int) -> np.ndarray:
     if window <= 1 or len(data) < window:
         return data
-    if window % 2 == 0:
-        window += 1
     kernel = np.ones(window, dtype=np.float64) / window
-    pad = window // 2
-    y = np.pad(data[:, 1], (pad, pad), mode="edge")
+    pad_left = (window - 1) // 2
+    pad_right = window // 2
+    y = np.pad(data[:, 1], (pad_left, pad_right), mode="edge")
     smoothed = np.convolve(y, kernel, mode="valid")
     return np.column_stack([data[:, 0], smoothed])
 
 
-def smooth_series_with_breaks(data: np.ndarray, window: int, breaks: Iterable[float]) -> np.ndarray:
+def smooth_series_with_breaks(
+    data: np.ndarray,
+    window: int,
+    breaks: Iterable[float],
+    no_smoothing_from: float | None = None,
+) -> np.ndarray:
     """Smooth without leaking values across checkpoint/phase boundaries."""
     if len(data) == 0:
         return data
@@ -236,7 +240,10 @@ def smooth_series_with_breaks(data: np.ndarray, window: int, breaks: Iterable[fl
         mask = (data[:, 0] >= start) & (data[:, 0] < stop)
         piece = data[mask]
         if len(piece):
-            pieces.append(smooth_series(piece, window))
+            if no_smoothing_from is not None and start >= no_smoothing_from:
+                pieces.append(piece)
+            else:
+                pieces.append(smooth_series(piece, window))
         start = stop
     if not pieces:
         return data
@@ -270,7 +277,14 @@ def resample_series(data: np.ndarray, step: float, xmin: float, xmax: float) -> 
     return np.asarray(sampled, dtype=np.float64)
 
 
-def prepare_curve(data: np.ndarray, args, breaks: Iterable[float] = ()) -> np.ndarray:
+def prepare_curve(
+    data: np.ndarray,
+    args,
+    breaks: Iterable[float] = (),
+    no_smoothing_from: float | None = None,
+    late_smooth_window: int = 1,
+    transition_smooth_window: int | None = None,
+) -> np.ndarray:
     if len(data) == 0:
         return data
 
@@ -282,16 +296,35 @@ def prepare_curve(data: np.ndarray, args, breaks: Iterable[float] = ()) -> np.nd
         if len(piece) == 0:
             continue
         piece = resample_series(piece, args.plot_step_million, left, right)
-        piece = smooth_series(piece, args.smooth_window)
         pieces.append(piece)
 
     if not pieces:
         return data
-    return downsample(np.concatenate(pieces, axis=0), args.max_points)
+    prepared = np.concatenate(pieces, axis=0)
+    if no_smoothing_from is not None:
+        early = prepared[prepared[:, 0] < no_smoothing_from]
+        late = prepared[prepared[:, 0] >= no_smoothing_from]
+        early = downsample(early, args.max_points)
+        early = smooth_series_with_breaks(early, args.smooth_window, breaks)
+        transition_end = 10.0
+        transition = late[late[:, 0] < transition_end]
+        refinement = late[late[:, 0] >= transition_end]
+        transition_window = (
+            late_smooth_window
+            if transition_smooth_window is None
+            else transition_smooth_window
+        )
+        transition = smooth_series(transition, transition_window)
+        refinement = smooth_series(refinement, late_smooth_window)
+        late = np.concatenate([transition, refinement], axis=0)
+        return np.concatenate([early, late], axis=0) if len(early) else late
+
+    prepared = downsample(prepared, args.max_points)
+    return smooth_series_with_breaks(prepared, args.smooth_window, breaks)
 
 
 def downsample(data: np.ndarray, max_points: int) -> np.ndarray:
-    if len(data) <= max_points:
+    if max_points <= 0 or len(data) <= max_points:
         return data
     idx = np.linspace(0, len(data) - 1, max_points).astype(int)
     return data[idx]
@@ -360,7 +393,14 @@ def build_curves(args) -> dict[tuple[str, str], np.ndarray]:
         fixed_td3_raw = merge_series(TD3_FIXED_BASELINE, tag, args.xmin, min(args.xmax, 10.0))
         td3_raw = merge_series(TD3_BASELINE, tag, args.xmin, min(args.xmax, 10.0))
 
-        pirl = prepare_curve(pirl_raw, args, breaks=[5.0, 10.0])
+        pirl = prepare_curve(
+            pirl_raw,
+            args,
+            breaks=[5.0, 10.0],
+            no_smoothing_from=5.0,
+            late_smooth_window=args.pirl_late_smooth_window,
+            transition_smooth_window=args.pirl_transition_smooth_window,
+        )
         fixed_td3 = prepare_curve(fixed_td3_raw, args)
         td3 = prepare_curve(td3_raw, args)
         curves[("PIRL lineage to mixedHJB 15M", tag)] = pirl
@@ -405,13 +445,34 @@ def plot_training_process(args) -> dict[tuple[str, str], np.ndarray]:
     set_style()
     os.makedirs(args.out_dir, exist_ok=True)
     csv_path = os.path.join(args.out_dir, "fig_drift_training_process_losses.csv")
-    if os.path.exists(csv_path) and not args.rebuild_csv:
+    if os.path.exists(csv_path) and args.reuse_csv:
         curves = load_csv(csv_path)
+        for key, data in curves.items():
+            breaks = [5.0, 10.0] if key[0] == "PIRL lineage to mixedHJB 15M" else []
+            no_smoothing_from = 5.0 if breaks else None
+            if no_smoothing_from is not None:
+                early = data[data[:, 0] < no_smoothing_from]
+                late = data[data[:, 0] >= no_smoothing_from]
+                early = downsample(early, args.max_points)
+                early = smooth_series_with_breaks(early, args.smooth_window, breaks)
+                transition = late[late[:, 0] < 10.0]
+                refinement = late[late[:, 0] >= 10.0]
+                transition = smooth_series(
+                    transition, args.pirl_transition_smooth_window
+                )
+                refinement = smooth_series(
+                    refinement, args.pirl_late_smooth_window
+                )
+                late = np.concatenate([transition, refinement], axis=0)
+                curves[key] = np.concatenate([early, late], axis=0)
+            else:
+                data = downsample(data, args.max_points)
+                curves[key] = smooth_series_with_breaks(data, args.smooth_window, breaks)
     else:
         curves = build_curves(args)
         save_csv(csv_path, curves)
 
-    fig_loss, axes = plt.subplots(3, 1, figsize=(5.9, 7.0), sharex=True)
+    fig_loss, axes = plt.subplots(3, 1, figsize=(5.9, 6.6), sharex=True)
     for i, (ax, (tag, ylabel, logy)) in enumerate(zip(axes, LOSS_PANEL_SPECS)):
         plot_panel(
             ax,
@@ -464,12 +525,18 @@ def parse_args():
     parser.add_argument("--out_dir", default=DEFAULT_OUT_DIR)
     parser.add_argument("--xmin", type=float, default=0.0)
     parser.add_argument("--xmax", type=float, default=15.0)
-    parser.add_argument("--plot_step_million", type=float, default=0.02,
-                        help="Resample curves onto this update spacing before smoothing.")
-    parser.add_argument("--smooth_window", type=int, default=5)
-    parser.add_argument("--max_points", type=int, default=1200)
-    parser.add_argument("--rebuild_csv", action="store_true",
-                        help="Reload TensorBoard events instead of reusing the cached CSV.")
+    parser.add_argument("--plot_step_million", type=float, default=0.0,
+                        help="Optional bin spacing in millions of updates (default: disabled).")
+    parser.add_argument("--smooth_window", type=int, default=8,
+                        help="Moving-average window after thinning (default: 8; 1 disables smoothing).")
+    parser.add_argument("--pirl_transition_smooth_window", type=int, default=6,
+                        help="Moving-average window for PIRL from 5M to 10M (default: 6).")
+    parser.add_argument("--pirl_late_smooth_window", type=int, default=5,
+                        help="Moving-average window for PIRL from 10M onward (default: 5).")
+    parser.add_argument("--max_points", type=int, default=1200,
+                        help="Maximum plotted points per curve (default: 1200; 0 disables thinning).")
+    parser.add_argument("--reuse_csv", action="store_true",
+                        help="Reuse the existing plotted-data CSV instead of reloading events.")
     parser.add_argument("--show", action="store_true")
     parser.add_argument("--no_pdf", action="store_true")
     return parser.parse_args()
