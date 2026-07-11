@@ -240,6 +240,19 @@ def pick_tag(curves: Dict[str, pd.DataFrame], candidates: Sequence[str]) -> str 
     return None
 
 
+
+def smooth_values(values: np.ndarray, window: int, mode: str = "linear") -> np.ndarray:
+    if window <= 1:
+        return values
+    window = int(window)
+    kernel = np.ones(window, dtype=np.float64) / float(window)
+    smoothed = np.empty_like(values, dtype=np.float64)
+    left = window // 2
+    right = window - 1 - left
+    for i in range(values.shape[0]):
+        padded = np.pad(values[i], (left, right), mode="edge")
+        smoothed[i] = np.convolve(padded, kernel, mode="valid")
+    return smoothed
 def interpolate_curves(seed_dfs: Sequence[pd.DataFrame], num_points: int) -> Tuple[np.ndarray | None, np.ndarray | None]:
     valid = [df.sort_values("step") for df in seed_dfs if len(df) >= 2]
     if not valid:
@@ -303,6 +316,8 @@ def plot_metric(
     legend_loc: str = "best",
     legend_bbox: Tuple[float, float] | None = None,
     legend_offset_mm: Tuple[float, float] = (0.0, 0.0),
+    smooth_window: int = 1,
+    smooth_mode: str = "linear",
 ) -> None:
     fig, ax = plt.subplots(figsize=(7.0, 3.5))
     plotted = False
@@ -313,6 +328,7 @@ def plot_metric(
         if grid is None or values is None:
             continue
 
+        values = smooth_values(values, smooth_window, mode=smooth_mode)
         mean = values.mean(axis=0)
         std = values.std(axis=0, ddof=1) if values.shape[0] > 1 else np.zeros_like(mean)
 
@@ -381,20 +397,24 @@ def plot_loss_panel(
     num_points: int,
     yscale: str = "log",
     xlim: Tuple[float, float] | None = None,
+    smooth_window: int = 1,
+    smooth_mode: str = "linear",
 ) -> None:
     metrics = [
-        ("rl_loss", "RL loss"),
         ("hjb_loss", "HJB loss"),
         ("bc_loss", "Boundary loss"),
+        ("rl_loss", "TD3 loss"),
     ]
 
     fig, axes = plt.subplots(
         3, 1,
-        figsize=(7.0, 4.8),
+        figsize=(7.0, 5.2),
         sharex=True,
     )
 
     any_plotted = False
+    legend_handles = []
+    legend_labels = []
 
     for ax, (metric, ylabel) in zip(axes, metrics):
         for group in groups:
@@ -403,17 +423,21 @@ def plot_loss_panel(
             if grid is None or values is None:
                 continue
 
+            values = smooth_values(values, smooth_window, mode=smooth_mode)
             mean = values.mean(axis=0)
             std = values.std(axis=0, ddof=1) if values.shape[0] > 1 else np.zeros_like(mean)
 
             style = get_group_style(group.label)
 
-            ax.plot(
+            line, = ax.plot(
                 grid, mean,
                 label=f"{group.label} (n={values.shape[0]})",
                 color=style["color"],
                 linestyle=style["linestyle"],
             )
+            if metric == metrics[0][0]:
+                legend_handles.append(line)
+                legend_labels.append(group.label)
             ax.fill_between(
                 grid, mean - std, mean + std,
                 color=style["color"],
@@ -427,11 +451,20 @@ def plot_loss_panel(
         if xlim is not None:
             ax.set_xlim(xlim)
 
-    #axes[0].legend(frameon=True)
+    if legend_handles:
+        fig.legend(
+            legend_handles,
+            legend_labels,
+            loc="upper center",
+            bbox_to_anchor=(0.5, 0.995),
+            ncol=min(len(legend_labels), 4),
+            frameon=True,
+        )
+
     axes[-1].set_xlabel("Update count")
     axes[-1].xaxis.set_major_formatter(FuncFormatter(format_update_count))
 
-    fig.tight_layout()
+    fig.tight_layout(rect=(0.0, 0.0, 1.0, 0.90))
 
     if any_plotted:
         fig.savefig(out_path, dpi=300, bbox_inches="tight")
@@ -449,12 +482,16 @@ def main() -> None:
     parser.add_argument("--group", action="append",
                         help='Run group: "label|method|date_or_run_substring|1,2,3"',
                         default=["TD3|td3|0530_0427|1,2,3,4,5,6,7,8,9,10",
-                                 "PINN (success)|pinn|0530_0631|1,2,3,7",
-                                 "PINN (fail)|pinn|0530_0631|4,5,6,8,9,10",
-                                 "PIRL (ours)|scheduling|0530_0026|1,2,3,4,5,6,7,8,9,10"])
+                                 "PINN-PI (success)|pinn|0530_0631|1,2,3,7",
+                                 "PINN-PI (fail)|pinn|0530_0631|4,5,6,8,9,10",
+                                 "PIRL|scheduling|0530_0026|1,2,3,4,5,6,7,8,9,10"])
     parser.add_argument("--out_dir", default="plot/1d_training_curves_groups")
     parser.add_argument("--num_points", type=int, default=400)
     parser.add_argument("--loss_yscale", default="log", choices=["linear", "log"])
+    parser.add_argument("--smooth_window", type=int, default=3,
+                        help="Moving-average window after interpolation. Use 1 to disable smoothing.")
+    parser.add_argument("--smooth_mode", default="log", choices=["linear", "log"],
+                        help="Smoothing space for loss curves on log-scale axes.")
     args = parser.parse_args()
 
     groups = [parse_group_spec(spec) for spec in args.group]
@@ -483,16 +520,16 @@ def main() -> None:
     plot_metric(all_curves, groups, "reward", "Episode reward",
                 os.path.join(args.out_dir, "fig_1d_reward_mean_std.png"), args.num_points,
                 yscale="linear", xlim=xlim, ylim= [0,0.6], show_legend=True, 
-                legend_bbox = (0.98, 0.42))
+                legend_bbox = (0.98, 0.42), smooth_window=args.smooth_window, smooth_mode="linear")
     plot_metric(all_curves, groups, "rl_loss", "RL loss",
                 os.path.join(args.out_dir, "fig_1d_rl_loss_mean_std.png"), args.num_points,
-                yscale=args.loss_yscale, xlim=xlim, ylim=None, show_legend=False)
+                yscale=args.loss_yscale, xlim=xlim, ylim=None, show_legend=False, smooth_window=args.smooth_window, smooth_mode=args.smooth_mode)
     plot_metric(all_curves, groups, "hjb_loss", "HJB loss",
                 os.path.join(args.out_dir, "fig_1d_hjb_loss_mean_std.png"), args.num_points,
-                yscale=args.loss_yscale, xlim=xlim, ylim=None, show_legend=False)
+                yscale=args.loss_yscale, xlim=xlim, ylim=None, show_legend=False, smooth_window=args.smooth_window, smooth_mode=args.smooth_mode)
     plot_metric(all_curves, groups, "bc_loss", "Boundary loss",
                 os.path.join(args.out_dir, "fig_1d_boundary_loss_mean_std.png"), args.num_points,
-                yscale=args.loss_yscale, xlim=xlim, ylim=None, show_legend=False)
+                yscale=args.loss_yscale, xlim=xlim, ylim=None, show_legend=False, smooth_window=args.smooth_window, smooth_mode=args.smooth_mode)
 
     plot_loss_panel(
         all_curves,
@@ -501,6 +538,8 @@ def main() -> None:
         num_points=args.num_points,
         yscale=args.loss_yscale,
         xlim=xlim,
+        smooth_window=args.smooth_window,
+        smooth_mode=args.smooth_mode,
     )
     # plot_metric(all_curves, groups, "total_loss", "Total loss",
     #             os.path.join(args.out_dir, "fig_1d_total_loss_mean_std.png"), args.num_points, yscale=args.loss_yscale)

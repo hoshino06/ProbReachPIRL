@@ -74,10 +74,10 @@ def plot_surface(T_grid, X_grid, Z, title, zlabel, out_path,
         cstride=1,
     )
 
-    ax.set_xlabel(r"$T$")
+    ax.set_xlabel(r"$\tau$")
     ax.set_ylabel(r"$x$")
     ax.set_zlabel(zlabel)
-    ax.set_title(title)
+    #ax.set_title(title)
 
     ax.set_xlim(np.nanmin(T_grid), np.nanmax(T_grid))
     ax.set_ylim(np.nanmin(X_grid), np.nanmax(X_grid))
@@ -110,7 +110,7 @@ def plot_heatmap(T, x, Z, title, cbar_label, out_path,
         cmap=cmap,
     )
 
-    ax.set_xlabel(r"$T$")
+    ax.set_xlabel(r"$\tau$")
     ax.set_ylabel(r"$x$")
     ax.set_title(title)
 
@@ -144,7 +144,7 @@ def plot_heatmap_panel(T, x, V_learned, V_true, V_error, out_path):
             cmap=cmap,
         )
         ax.set_title(title)
-        ax.set_xlabel(r"$T$")
+        ax.set_xlabel(r"$\tau$")
         cbar = fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
         if title == "Absolute error":
             cbar.set_label(r"$|V_{\mathrm{learned}}-V_{\mathrm{true}}|$")

@@ -1,0 +1,31 @@
+label,method,seed,run_dir,tag,reward
+TD3,td3,1,logs/1D\td3\0530_0427_seed_1,RL/Average Reward,0.5039999961853028
+TD3,td3,2,logs/1D\td3\0530_0427_seed_2,RL/Average Reward,0.5040000021457672
+TD3,td3,3,logs/1D\td3\0530_0427_seed_3,RL/Average Reward,0.48999999463558197
+TD3,td3,4,logs/1D\td3\0530_0427_seed_4,RL/Average Reward,0.47999999225139617
+TD3,td3,5,logs/1D\td3\0530_0427_seed_5,RL/Average Reward,0.4929999977350235
+TD3,td3,6,logs/1D\td3\0530_0427_seed_6,RL/Average Reward,0.4949999928474426
+TD3,td3,7,logs/1D\td3\0530_0427_seed_7,RL/Average Reward,0.5160000026226044
+TD3,td3,8,logs/1D\td3\0530_0427_seed_8,RL/Average Reward,0.5079999893903733
+TD3,td3,9,logs/1D\td3\0530_0427_seed_9,RL/Average Reward,0.4890000015497208
+TD3,td3,10,logs/1D\td3\0530_0427_seed_10,RL/Average Reward,0.4909999996423721
+PINN-PI (success),pinn,1,logs/1D\pinn\0530_0631_seed_1,RL/Average Reward,0.47799999713897706
+PINN-PI (success),pinn,2,logs/1D\pinn\0530_0631_seed_2,RL/Average Reward,0.4909999966621399
+PINN-PI (success),pinn,3,logs/1D\pinn\0530_0631_seed_3,RL/Average Reward,0.4989999979734421
+PINN-PI (success),pinn,7,logs/1D\pinn\0530_0631_seed_7,RL/Average Reward,0.475
+PINN-PI (fail),pinn,4,logs/1D\pinn\0530_0631_seed_4,RL/Average Reward,0.04899999964982271
+PINN-PI (fail),pinn,5,logs/1D\pinn\0530_0631_seed_5,RL/Average Reward,0.0639999995008111
+PINN-PI (fail),pinn,6,logs/1D\pinn\0530_0631_seed_6,RL/Average Reward,0.08000000044703484
+PINN-PI (fail),pinn,8,logs/1D\pinn\0530_0631_seed_8,RL/Average Reward,0.06500000134110451
+PINN-PI (fail),pinn,9,logs/1D\pinn\0530_0631_seed_9,RL/Average Reward,0.058999999240040776
+PINN-PI (fail),pinn,10,logs/1D\pinn\0530_0631_seed_10,RL/Average Reward,0.0529999990016222
+PIRL (ours),scheduling,1,logs/1D\scheduling\0530_0026_seed_1,RL/Average Reward,0.492999991774559
+PIRL (ours),scheduling,2,logs/1D\scheduling\0530_0026_seed_2,RL/Average Reward,0.4900000005960464
+PIRL (ours),scheduling,3,logs/1D\scheduling\0530_0026_seed_3,RL/Average Reward,0.4880000025033951
+PIRL (ours),scheduling,4,logs/1D\scheduling\0530_0026_seed_4,RL/Average Reward,0.5319999903440475
+PIRL (ours),scheduling,5,logs/1D\scheduling\0530_0026_seed_5,RL/Average Reward,0.48299999833106994
+PIRL (ours),scheduling,6,logs/1D\scheduling\0530_0026_seed_6,RL/Average Reward,0.5060000002384186
+PIRL (ours),scheduling,7,logs/1D\scheduling\0530_0026_seed_7,RL/Average Reward,0.4949999928474426
+PIRL (ours),scheduling,8,logs/1D\scheduling\0530_0026_seed_8,RL/Average Reward,0.5060000002384186
+PIRL (ours),scheduling,9,logs/1D\scheduling\0530_0026_seed_9,RL/Average Reward,0.5089999943971634
+PIRL (ours),scheduling,10,logs/1D\scheduling\0530_0026_seed_10,RL/Average Reward,0.46599999666213987
