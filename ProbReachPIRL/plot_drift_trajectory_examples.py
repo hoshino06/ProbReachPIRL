@@ -492,7 +492,7 @@ def save_figure(fig, out_dir: str, stem: str):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--checkpoint", default=DEFAULT_PIRL_CHECKPOINT)
-    parser.add_argument("--out_dir", default="plot/drift_value_trajectory_examples")
+    parser.add_argument("--out_dir", default="plot/drift_trajectory_examples")
     parser.add_argument("--env_cls", default="examples.env_drifting_control.Env")
     parser.add_argument("--agent_cls", default="agent.TD3_PIRL_ray.PIRLAgent")
     parser.add_argument("--T", type=float, default=5.0)
@@ -612,11 +612,11 @@ def main():
     )
     plot_outcome_bars(axes[1, 0], results, colors)
     plot_xy_trajectories(axes[1, 1], env, results, colors, equal_aspect=not args.xy_auto_aspect)
-    save_figure(fig, args.out_dir, "value_trajectory_examples")
+    save_figure(fig, args.out_dir, "trajectory_examples")
     figures.append(fig)
 
     np.savez(
-        os.path.join(args.out_dir, "value_trajectory_examples_data.npz"),
+        os.path.join(args.out_dir, "trajectory_examples_data.npz"),
         example_names=np.array([ex.name for ex in examples]),
         example_values=np.array([ex.value for ex in examples]),
         example_beta=np.array([ex.beta for ex in examples]),
