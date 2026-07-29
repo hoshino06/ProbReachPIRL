@@ -5,8 +5,12 @@ from __future__ import annotations
 
 import argparse
 import csv
+import os
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
+
+os.environ.setdefault("MPLCONFIGDIR", "/tmp/matplotlib")
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -18,6 +22,14 @@ from plot_drift_value_contours import backend_supports_show, set_paper_style
 class EventRun:
     label: str
     path: str
+
+
+@dataclass(frozen=True)
+class SpeedGroup:
+    key: str
+    label: str
+    tick_label: str
+    event_runs: tuple[EventRun, ...]
 
 
 TD3_FIXED_10M = [
@@ -108,6 +120,33 @@ METHODS = [
     ("pirl_15M", "PIRL 15M", "PIRL\n15M", PIRL_5M_PRETRAIN + PIRL_5M_TO_10M + PIRL_10M_TO_15M),
 ]
 
+SPEED_GROUPS = [
+    SpeedGroup(
+        "td3_fixed",
+        r"TD3 fixed $\tau$",
+        r"TD3 fixed $\tau$",
+        tuple(TD3_FIXED_10M),
+    ),
+    SpeedGroup(
+        "td3_random",
+        r"TD3 random $\tau$",
+        r"TD3 random $\tau$",
+        tuple(TD3_RANDOM_10M),
+    ),
+    SpeedGroup(
+        "pirl_transition",
+        "PIRL transition",
+        "PIRL\ntransition",
+        tuple(PIRL_5M_TO_10M),
+    ),
+    SpeedGroup(
+        "pirl_refinement",
+        "PIRL refinement",
+        "PIRL\nrefinement",
+        tuple(PIRL_10M_TO_15M),
+    ),
+]
+
 ERROR_ANALYSIS_METHOD = {
     "td3_fixed_10M": "TD3 fixed tau 10M",
     "td3_random_10M": "TD3 random tau 10M",
@@ -120,10 +159,15 @@ COLORS = {
     "td3_random_10M": "#8a8d91",
     "pirl_10M": "#1f77b4",
     "pirl_15M": "#0b5cad",
+    "td3_fixed": "#5f6368",
+    "td3_random": "#8a8d91",
+    "pirl_transition": "#2f7ebc",
+    "pirl_refinement": "#0b5cad",
 }
 
 
-def event_elapsed_hours(path: str) -> float:
+@lru_cache(maxsize=None)
+def event_training_metrics(path: str) -> tuple[float, int, int, int]:
     from tensorboard.backend.event_processing import event_accumulator
 
     acc = event_accumulator.EventAccumulator(
@@ -132,11 +176,45 @@ def event_elapsed_hours(path: str) -> float:
     )
     acc.Reload()
     wall_times = []
+    steps = []
     for tag in acc.Tags().get("scalars", []):
-        wall_times.extend(event.wall_time for event in acc.Scalars(tag))
-    if not wall_times:
-        return 0.0
-    return (max(wall_times) - min(wall_times)) / 3600.0
+        events = acc.Scalars(tag)
+        wall_times.extend(event.wall_time for event in events)
+        steps.extend(event.step for event in events)
+    if not wall_times or not steps:
+        return 0.0, 0, 0, 0
+    elapsed_hours = (max(wall_times) - min(wall_times)) / 3600.0
+    min_step = min(steps)
+    max_step = max(steps)
+    return elapsed_hours, max_step - min_step, min_step, max_step
+
+
+def summarize_event_runs(event_runs: list[EventRun] | tuple[EventRun, ...]) -> dict[str, float | int]:
+    elapsed = 0.0
+    logged_updates = 0
+    min_steps = []
+    max_steps = []
+    for run in event_runs:
+        run_elapsed, run_updates, min_step, max_step = event_training_metrics(run.path)
+        elapsed += run_elapsed
+        logged_updates += run_updates
+        if run_updates > 0:
+            min_steps.append(min_step)
+            max_steps.append(max_step)
+
+    update_million = logged_updates / 1_000_000.0
+    updates_per_hour = update_million / elapsed if elapsed > 0.0 else 0.0
+    hours_per_million = elapsed / update_million if update_million > 0.0 else 0.0
+    return {
+        "wall_clock_hours": elapsed,
+        "logged_updates": logged_updates,
+        "logged_updates_million": update_million,
+        "updates_per_hour_million": updates_per_hour,
+        "hours_per_million_updates": hours_per_million,
+        "sec_per_1k_updates": hours_per_million * 3.6,
+        "min_step": min(min_steps) if min_steps else 0,
+        "max_step": max(max_steps) if max_steps else 0,
+    }
 
 
 def read_validation_hjb_loss(path: Path) -> dict[str, float]:
@@ -149,14 +227,29 @@ def build_summary(error_csv: Path) -> list[dict[str, float | str]]:
     validation_loss = read_validation_hjb_loss(error_csv)
     rows = []
     for key, label, tick_label, event_runs in METHODS:
-        elapsed = sum(event_elapsed_hours(run.path) for run in event_runs)
+        event_summary = summarize_event_runs(event_runs)
         rows.append(
             {
                 "method": key,
                 "plot_label": label,
                 "tick_label": tick_label,
                 "validation_hjb_loss": validation_loss[ERROR_ANALYSIS_METHOD[key]],
-                "wall_clock_hours": elapsed,
+                **event_summary,
+            }
+        )
+    return rows
+
+
+def build_speed_summary() -> list[dict[str, float | str]]:
+    rows = []
+    for group in SPEED_GROUPS:
+        event_summary = summarize_event_runs(group.event_runs)
+        rows.append(
+            {
+                "method": group.key,
+                "plot_label": group.label,
+                "tick_label": group.tick_label,
+                **event_summary,
             }
         )
     return rows
@@ -174,32 +267,32 @@ def plot_summary(rows: list[dict[str, float | str]], out_dir: Path, save_pdf: bo
     labels = [str(row["tick_label"]) for row in rows]
     colors = [COLORS[str(row["method"])] for row in rows]
 
-    fig, axes = plt.subplots(1, 2, figsize=(9.6, 3.8), constrained_layout=True)
+    fig, axes = plt.subplots(1, 2, figsize=(10.2, 3.7), constrained_layout=True)
 
     ax = axes[0]
     hjb = [float(row["validation_hjb_loss"]) for row in rows]
     ax.bar(x, hjb, color=colors, width=0.62)
     ax.set_yscale("log")
-    ax.set_ylabel("validation HJB loss")
+    ax.set_ylabel("validation HJB loss", fontsize=13)
     ax.set_xticks(x)
     ax.set_xticklabels(labels, fontsize=10)
     ax.tick_params(axis="y", labelsize=10)
     ax.grid(True, axis="y", which="both", alpha=0.25)
 
     ax = axes[1]
-    hours = [float(row["wall_clock_hours"]) for row in rows]
-    bars = ax.bar(x, hours, color=colors, width=0.62)
-    ax.set_ylabel("wall-clock time [h]")
+    hours_per_million = [float(row["hours_per_million_updates"]) for row in rows]
+    bars = ax.bar(x, hours_per_million, color=colors, width=0.62)
+    ax.set_ylabel("cost [h / M updates]", fontsize=13)
     ax.set_xticks(x)
     ax.set_xticklabels(labels, fontsize=10)
     ax.tick_params(axis="y", labelsize=10)
     ax.grid(True, axis="y", alpha=0.25)
-    ax.set_ylim(0.0, max(hours) * 1.16)
-    for bar, value in zip(bars, hours):
+    ax.set_ylim(0.0, max(hours_per_million) * 1.16)
+    for bar, value in zip(bars, hours_per_million):
         ax.text(
             bar.get_x() + bar.get_width() / 2,
             bar.get_height(),
-            f"{value:.0f}",
+            f"{value:.1f}",
             ha="center",
             va="bottom",
             fontsize=9,
@@ -207,6 +300,44 @@ def plot_summary(rows: list[dict[str, float | str]], out_dir: Path, save_pdf: bo
 
     for ext in ["png"] + (["pdf"] if save_pdf else []):
         fig.savefig(out_dir / f"validation_hjb_vs_runtime.{ext}", dpi=300, bbox_inches="tight", pad_inches=0.06)
+        fig.savefig(out_dir / f"validation_hjb_vs_compute_cost.{ext}", dpi=300, bbox_inches="tight", pad_inches=0.06)
+    if not backend_supports_show():
+        plt.close(fig)
+
+
+def plot_speed_summary(rows: list[dict[str, float | str]], out_dir: Path, save_pdf: bool) -> None:
+    x = np.arange(len(rows))
+    labels = [str(row["tick_label"]) for row in rows]
+    colors = [COLORS[str(row["method"])] for row in rows]
+    speeds = [float(row["updates_per_hour_million"]) for row in rows]
+    costs = [float(row["hours_per_million_updates"]) for row in rows]
+
+    fig, axes = plt.subplots(1, 2, figsize=(10.2, 3.6), constrained_layout=True)
+
+    ax = axes[0]
+    bars = ax.bar(x, speeds, color=colors, width=0.62)
+    ax.set_ylabel("speed [M updates / h]", fontsize=13)
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels, fontsize=10)
+    ax.tick_params(axis="y", labelsize=10)
+    ax.grid(True, axis="y", alpha=0.25)
+    ax.set_ylim(0.0, max(speeds) * 1.18)
+    for bar, value in zip(bars, speeds):
+        ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height(), f"{value:.3f}", ha="center", va="bottom", fontsize=9)
+
+    ax = axes[1]
+    bars = ax.bar(x, costs, color=colors, width=0.62)
+    ax.set_ylabel("cost [h / M updates]", fontsize=13)
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels, fontsize=10)
+    ax.tick_params(axis="y", labelsize=10)
+    ax.grid(True, axis="y", alpha=0.25)
+    ax.set_ylim(0.0, max(costs) * 1.18)
+    for bar, value in zip(bars, costs):
+        ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height(), f"{value:.1f}", ha="center", va="bottom", fontsize=9)
+
+    for ext in ["png"] + (["pdf"] if save_pdf else []):
+        fig.savefig(out_dir / f"compute_speed_summary.{ext}", dpi=300, bbox_inches="tight", pad_inches=0.06)
     if not backend_supports_show():
         plt.close(fig)
 
@@ -223,14 +354,25 @@ def main() -> None:
     set_paper_style()
 
     rows = build_summary(Path(args.error_csv))
+    speed_rows = build_speed_summary()
     write_summary(out_dir / "validation_hjb_runtime_summary.csv", rows)
+    write_summary(out_dir / "compute_speed_summary.csv", speed_rows)
     plot_summary(rows, out_dir, args.save_pdf)
+    plot_speed_summary(speed_rows, out_dir, args.save_pdf)
 
     print("--------------------------------------------")
     print(f"out_dir: {out_dir}")
     for row in rows:
         print(
             f"{row['method']}: validation HJB={row['validation_hjb_loss']:.3e}, "
+            f"wall-clock={row['wall_clock_hours']:.2f} h, "
+            f"compute cost={row['hours_per_million_updates']:.2f} h/M updates"
+        )
+    print("compute speed groups:")
+    for row in speed_rows:
+        print(
+            f"{row['method']}: {row['updates_per_hour_million']:.3f} M updates/h, "
+            f"{row['hours_per_million_updates']:.2f} h/M updates, "
             f"wall-clock={row['wall_clock_hours']:.2f} h"
         )
     print("--------------------------------------------")
