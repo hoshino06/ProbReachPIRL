@@ -114,8 +114,8 @@ PIRL_10M_TO_15M = [
 ]
 
 METHODS = [
-    ("td3_fixed_10M", r"TD3 fixed $\tau$ 10M", r"TD3 fixed $\tau$" + "\n10M", TD3_FIXED_10M),
-    ("td3_random_10M", r"TD3 random $\tau$ 10M", r"TD3 random $\tau$" + "\n10M", TD3_RANDOM_10M),
+    ("td3_fixed_10M", r"TD3 fixed $\tau$ 10M", "TD3\n" + r"fixed $\tau$" + "\n10M", TD3_FIXED_10M),
+    ("td3_random_10M", r"TD3 random $\tau$ 10M", "TD3\n" + r"random $\tau$" + "\n10M", TD3_RANDOM_10M),
     ("pirl_10M", "PIRL 10M", "PIRL\n10M", PIRL_5M_PRETRAIN + PIRL_5M_TO_10M),
     ("pirl_15M", "PIRL 15M", "PIRL\n15M", PIRL_5M_PRETRAIN + PIRL_5M_TO_10M + PIRL_10M_TO_15M),
 ]
@@ -152,6 +152,13 @@ ERROR_ANALYSIS_METHOD = {
     "td3_random_10M": "TD3 random tau 10M",
     "pirl_10M": "PIRL 10M",
     "pirl_15M": "PIRL mixed 15M",
+}
+
+BENCHMARK_METHOD = {
+    "td3_fixed_10M": "td3_fixed",
+    "td3_random_10M": "td3_random",
+    "pirl_10M": "pirl_transition",
+    "pirl_15M": "pirl_refinement",
 }
 
 COLORS = {
@@ -217,33 +224,63 @@ def summarize_event_runs(event_runs: list[EventRun] | tuple[EventRun, ...]) -> d
     }
 
 
-def read_validation_hjb_loss(path: Path) -> dict[str, float]:
+def read_validation_losses(path: Path) -> dict[str, dict[str, float]]:
     with open(path, newline="") as f:
-        rows = {row["method"]: float(row["hjb_residual_mean"]) for row in csv.DictReader(f)}
+        rows = {
+            row["method"]: {
+                "hjb_loss": float(row["hjb_residual_mean"]),
+                "bdr_loss": float(row["boundary_value_mae"]),
+            }
+            for row in csv.DictReader(f)
+        }
     return rows
 
 
-def build_summary(error_csv: Path) -> list[dict[str, float | str]]:
-    validation_loss = read_validation_hjb_loss(error_csv)
+def read_compute_benchmark(path: Path) -> dict[str, dict[str, float]]:
+    if not path.exists():
+        return {}
+    rows = {}
+    with open(path, newline="") as f:
+        for row in csv.DictReader(f):
+            rows[row["method"]] = {
+                "updates_per_hour_million": float(row["median_million_updates_per_hour"]),
+                "hours_per_million_updates": float(row["median_hours_per_million_updates"]),
+                "sec_per_1k_updates": float(row["median_hours_per_million_updates"]) * 3.6,
+            }
+    return rows
+
+
+def build_summary(error_csv: Path, benchmark_csv: Path) -> list[dict[str, float | str]]:
+    validation_losses = read_validation_losses(error_csv)
+    benchmark_rows = read_compute_benchmark(benchmark_csv)
     rows = []
     for key, label, tick_label, event_runs in METHODS:
         event_summary = summarize_event_runs(event_runs)
+        benchmark = benchmark_rows.get(BENCHMARK_METHOD[key])
+        if benchmark is not None:
+            event_summary = {**event_summary, **benchmark}
+        losses = validation_losses[ERROR_ANALYSIS_METHOD[key]]
         rows.append(
             {
                 "method": key,
                 "plot_label": label,
                 "tick_label": tick_label,
-                "validation_hjb_loss": validation_loss[ERROR_ANALYSIS_METHOD[key]],
+                "hjb_loss": losses["hjb_loss"],
+                "bdr_loss": losses["bdr_loss"],
                 **event_summary,
             }
         )
     return rows
 
 
-def build_speed_summary() -> list[dict[str, float | str]]:
+def build_speed_summary(benchmark_csv: Path) -> list[dict[str, float | str]]:
+    benchmark_rows = read_compute_benchmark(benchmark_csv)
     rows = []
     for group in SPEED_GROUPS:
         event_summary = summarize_event_runs(group.event_runs)
+        benchmark = benchmark_rows.get(group.key)
+        if benchmark is not None:
+            event_summary = {**event_summary, **benchmark}
         rows.append(
             {
                 "method": group.key,
@@ -262,24 +299,28 @@ def write_summary(path: Path, rows: list[dict[str, float | str]]) -> None:
         writer.writerows(rows)
 
 
-def plot_summary(rows: list[dict[str, float | str]], out_dir: Path, save_pdf: bool) -> None:
+def draw_loss_panel(ax, rows: list[dict[str, float | str]]) -> None:
     x = np.arange(len(rows))
     labels = [str(row["tick_label"]) for row in rows]
-    colors = [COLORS[str(row["method"])] for row in rows]
+    width = 0.34
 
-    fig, axes = plt.subplots(1, 2, figsize=(10.2, 3.7), constrained_layout=True)
-
-    ax = axes[0]
-    hjb = [float(row["validation_hjb_loss"]) for row in rows]
-    ax.bar(x, hjb, color=colors, width=0.62)
+    hjb = [float(row["hjb_loss"]) for row in rows]
+    bdr = [float(row["bdr_loss"]) for row in rows]
+    ax.bar(x - width / 2, hjb, color="#4c78a8", width=width, label="HJB")
+    ax.bar(x + width / 2, bdr, color="#f28e2b", width=width, label="BDR")
     ax.set_yscale("log")
-    ax.set_ylabel("validation HJB loss", fontsize=13)
+    ax.set_ylabel("loss", fontsize=13)
     ax.set_xticks(x)
     ax.set_xticklabels(labels, fontsize=10)
     ax.tick_params(axis="y", labelsize=10)
     ax.grid(True, axis="y", which="both", alpha=0.25)
+    ax.legend(frameon=True, fontsize=10, loc="upper right")
 
-    ax = axes[1]
+
+def draw_compute_cost_panel(ax, rows: list[dict[str, float | str]]) -> None:
+    x = np.arange(len(rows))
+    labels = [str(row["tick_label"]) for row in rows]
+    colors = [COLORS[str(row["method"])] for row in rows]
     hours_per_million = [float(row["hours_per_million_updates"]) for row in rows]
     bars = ax.bar(x, hours_per_million, color=colors, width=0.62)
     ax.set_ylabel("cost [h / M updates]", fontsize=13)
@@ -298,11 +339,28 @@ def plot_summary(rows: list[dict[str, float | str]], out_dir: Path, save_pdf: bo
             fontsize=9,
         )
 
+
+def plot_summary(rows: list[dict[str, float | str]], out_dir: Path, save_pdf: bool) -> None:
+    fig, axes = plt.subplots(1, 2, figsize=(10.2, 3.7), constrained_layout=True)
+    draw_loss_panel(axes[0], rows)
+    draw_compute_cost_panel(axes[1], rows)
+
     for ext in ["png"] + (["pdf"] if save_pdf else []):
-        fig.savefig(out_dir / f"validation_hjb_vs_runtime.{ext}", dpi=300, bbox_inches="tight", pad_inches=0.06)
         fig.savefig(out_dir / f"validation_hjb_vs_compute_cost.{ext}", dpi=300, bbox_inches="tight", pad_inches=0.06)
     if not backend_supports_show():
         plt.close(fig)
+
+    panel_specs = [
+        ("loss_panel", draw_loss_panel),
+        ("compute_cost_panel", draw_compute_cost_panel),
+    ]
+    for stem, draw in panel_specs:
+        panel_fig, panel_ax = plt.subplots(figsize=(4.3, 4.3), constrained_layout=True)
+        draw(panel_ax, rows)
+        for ext in ["png"] + (["pdf"] if save_pdf else []):
+            panel_fig.savefig(out_dir / f"{stem}.{ext}", dpi=300, bbox_inches="tight", pad_inches=0.06)
+        if not backend_supports_show():
+            plt.close(panel_fig)
 
 
 def plot_speed_summary(rows: list[dict[str, float | str]], out_dir: Path, save_pdf: bool) -> None:
@@ -346,6 +404,12 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--out_dir", default="plot/drift_hjb_runtime_summary")
     parser.add_argument("--error_csv", default="plot/drift_error_analysis/pirl_safety_story_summary.csv")
+    parser.add_argument(
+        "--benchmark_csv",
+        default="plot/drift_hjb_runtime_summary/compute_speed_benchmark_5k_r2.csv",
+        help="Independent compute-speed benchmark CSV. Falls back to TensorBoard wall time if missing.",
+    )
+    parser.add_argument("--plot_speed_summary", action="store_true")
     parser.add_argument("--save_pdf", action="store_true")
     args = parser.parse_args()
 
@@ -353,18 +417,20 @@ def main() -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     set_paper_style()
 
-    rows = build_summary(Path(args.error_csv))
-    speed_rows = build_speed_summary()
+    rows = build_summary(Path(args.error_csv), Path(args.benchmark_csv))
+    speed_rows = build_speed_summary(Path(args.benchmark_csv))
     write_summary(out_dir / "validation_hjb_runtime_summary.csv", rows)
     write_summary(out_dir / "compute_speed_summary.csv", speed_rows)
     plot_summary(rows, out_dir, args.save_pdf)
-    plot_speed_summary(speed_rows, out_dir, args.save_pdf)
+    if args.plot_speed_summary:
+        plot_speed_summary(speed_rows, out_dir, args.save_pdf)
 
     print("--------------------------------------------")
     print(f"out_dir: {out_dir}")
     for row in rows:
         print(
-            f"{row['method']}: validation HJB={row['validation_hjb_loss']:.3e}, "
+            f"{row['method']}: HJB={row['hjb_loss']:.3e}, "
+            f"BDR={row['bdr_loss']:.3e}, "
             f"wall-clock={row['wall_clock_hours']:.2f} h, "
             f"compute cost={row['hours_per_million_updates']:.2f} h/M updates"
         )
