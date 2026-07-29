@@ -1,0 +1,9 @@
+method,plot_label,tick_label,validation_hjb_loss,wall_clock_hours
+td3_fixed_10M,TD3 fixed $\tau$ 10M,"TD3 fixed $\tau$
+10M",7.611937992874303,58.46537923998303
+td3_random_10M,TD3 random $\tau$ 10M,"TD3 random $\tau$
+10M",2.8799108830529514,59.041682202087514
+pirl_10M,PIRL 10M,"PIRL
+10M",1.0457397711953085,77.09422142512268
+pirl_15M,PIRL 15M,"PIRL
+15M",0.1467411964397889,138.61708246290684

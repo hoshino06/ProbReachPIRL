@@ -386,7 +386,7 @@ def plot_trajectory_cloud(
         ax.set_ylabel(r"$e_\psi$ [rad]")
         if show_title:
             ax.set_title(r"Rollouts projected to $e_y$-$e_\psi$")
-    ax.legend(frameon=True, loc="best", fontsize=9)
+    ax.legend(frameon=True, loc="best", fontsize=12, borderpad=0.35, handlelength=1.5, labelspacing=0.35)
 
 
 def plot_xy_trajectories(ax, env, results, colors, equal_aspect: bool = False, show_title: bool = False):
@@ -456,10 +456,34 @@ def plot_xy_trajectories(ax, env, results, colors, equal_aspect: bool = False, s
     ax.set_ylabel(r"$y$ [m]")
     if show_title:
         ax.set_title(r"Trajectories in physical $x$-$y$ space")
-    ax.legend(frameon=True, loc="upper center", bbox_to_anchor=(0.5, 1.18), ncol=2, fontsize=9)
+    ax.legend(
+        frameon=True,
+        loc="upper center",
+        bbox_to_anchor=(0.5, 1.18),
+        ncol=2,
+        fontsize=11,
+        borderpad=0.35,
+        handlelength=1.5,
+        labelspacing=0.35,
+        columnspacing=0.8,
+    )
 
 
-def plot_outcome_bars(ax, results, colors, show_title: bool = False):
+def wilson_interval(phat: np.ndarray, n: int, z: float = 1.96):
+    denom = 1.0 + z * z / n
+    center = (phat + z * z / (2.0 * n)) / denom
+    half_width = z * np.sqrt(phat * (1.0 - phat) / n + z * z / (4.0 * n * n)) / denom
+    return np.maximum(0.0, center - half_width), np.minimum(1.0, center + half_width)
+
+
+def plot_outcome_bars(
+    ax,
+    results,
+    colors,
+    show_title: bool = False,
+    show_errorbars: bool = True,
+    show_value_lines: bool = False,
+):
     labels = [r["example"].name for r in results]
     reached = np.array([np.mean(r["status"] == "reached") for r in results])
     unsafe = np.array([np.mean(r["status"] == "unsafe") for r in results])
@@ -469,9 +493,33 @@ def plot_outcome_bars(ax, results, colors, show_title: bool = False):
     ax.bar(x, reached, color="#2ca25f", label="reached")
     ax.bar(x, unsafe, bottom=reached, color="#de2d26", label="unsafe")
     ax.bar(x, timeout, bottom=reached + unsafe, color="#9e9e9e", label="timeout")
+    if show_errorbars:
+        n = len(results[0]["status"])
+        lower, upper = wilson_interval(reached, n)
+        ax.errorbar(
+            x,
+            reached,
+            yerr=np.vstack([reached - lower, upper - reached]),
+            fmt="none",
+            ecolor="black",
+            elinewidth=1.2,
+            capsize=4,
+            capthick=1.2,
+            zorder=6,
+        )
     for i, (result, color) in enumerate(zip(results, colors)):
         ex = result["example"]
-        ax.text(i, 1.04, f"V={ex.value:.2f}", ha="center", va="bottom", color=color, fontsize=10)
+        if show_value_lines:
+            ax.hlines(
+                ex.value,
+                i - 0.36,
+                i + 0.36,
+                colors=color,
+                linestyles=(0, (3.0, 2.0)),
+                linewidth=2.0,
+                zorder=7,
+            )
+        ax.text(i, 1.04, f"V={ex.value:.2f}", ha="center", va="bottom", color=color, fontsize=12)
 
     ax.set_xticks(x)
     ax.set_xticklabels(labels)
@@ -479,7 +527,17 @@ def plot_outcome_bars(ax, results, colors, show_title: bool = False):
     ax.set_ylabel("rollout fraction")
     if show_title:
         ax.set_title("Closed-loop outcomes")
-    ax.legend(frameon=True, loc="upper center", bbox_to_anchor=(0.5, 1.11), ncol=3, fontsize=9)
+    ax.legend(
+        frameon=True,
+        loc="upper center",
+        bbox_to_anchor=(0.5, 1.11),
+        ncol=3,
+        fontsize=11,
+        borderpad=0.35,
+        handlelength=1.4,
+        labelspacing=0.35,
+        columnspacing=0.8,
+    )
 
 
 def save_figure(fig, out_dir: str, stem: str):
@@ -505,6 +563,16 @@ def main():
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--deterministic", action="store_true")
     parser.add_argument("--levels", type=int, default=41)
+    parser.add_argument(
+        "--no_outcome_errorbars",
+        action="store_true",
+        help="Hide 95% Wilson confidence intervals on the empirical reached fractions.",
+    )
+    parser.add_argument(
+        "--outcome_value_lines",
+        action="store_true",
+        help="Show dashed learned-value reference lines in the outcome bars.",
+    )
     parser.add_argument(
         "--manual_examples",
         default=DEFAULT_MANUAL_EXAMPLES,
@@ -577,7 +645,13 @@ def main():
     figures.append(fig_beta_r)
 
     fig_outcomes, ax_outcomes = plt.subplots(figsize=(5.4, 4.4), constrained_layout=True)
-    plot_outcome_bars(ax_outcomes, results, colors)
+    plot_outcome_bars(
+        ax_outcomes,
+        results,
+        colors,
+        show_errorbars=not args.no_outcome_errorbars,
+        show_value_lines=args.outcome_value_lines,
+    )
     save_figure(fig_outcomes, args.out_dir, "panel_closed_loop_outcomes")
     figures.append(fig_outcomes)
 
@@ -610,7 +684,13 @@ def main():
         value_grid=V_ey_epsi,
         value_meta=meta_ey_epsi,
     )
-    plot_outcome_bars(axes[1, 0], results, colors)
+    plot_outcome_bars(
+        axes[1, 0],
+        results,
+        colors,
+        show_errorbars=not args.no_outcome_errorbars,
+        show_value_lines=args.outcome_value_lines,
+    )
     plot_xy_trajectories(axes[1, 1], env, results, colors, equal_aspect=not args.xy_auto_aspect)
     save_figure(fig, args.out_dir, "trajectory_examples")
     figures.append(fig)

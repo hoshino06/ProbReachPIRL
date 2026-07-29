@@ -42,7 +42,12 @@ import matplotlib.pyplot as plt
 def set_paper_style() -> None:
     plt.rcParams.update({
         "font.family": "serif",
-        "font.size": 12,
+        "font.size": 14,
+        "axes.labelsize": 16,
+        "axes.titlesize": 16,
+        "xtick.labelsize": 14,
+        "ytick.labelsize": 14,
+        "legend.fontsize": 14,
         "axes.grid": True,
         "grid.alpha": 0.25,
         "mathtext.fontset": "cm",
@@ -147,6 +152,14 @@ def target_rectangle(env, plane: str):
     return x0, x1, y0, y1
 
 
+def plane_axis_labels(plane: str) -> tuple[str, str]:
+    if plane == "beta_r":
+        return r"$\beta$ [rad]", r"$r$ [rad/s]"
+    if plane == "ey_epsi":
+        return r"$e_y$ [m]", r"$e_\psi$ [rad]"
+    raise ValueError(plane)
+
+
 def add_target_patch(ax, env, plane: str, label: str = "target set") -> None:
     x0, x1, y0, y1 = target_rectangle(env, plane)
     ax.fill([x0, x1, x1, x0, x0], [y0, y0, y1, y1, y0],
@@ -205,8 +218,9 @@ def plot_value_contour(ax, env, V: np.ndarray, meta: dict, plane: str,
 
     add_target_patch(ax, env, plane)
 
-    ax.set_xlabel(meta["xlabel"].replace("beta", r"$\beta$").replace("epsi", r"$e_\psi$").replace("ey", r"$e_y$"))
-    ax.set_ylabel(meta["ylabel"].replace("r", r"$r$").replace("epsi", r"$e_\psi$").replace("ey", r"$e_y$"))
+    xlabel, ylabel = plane_axis_labels(plane)
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
     ax.set_title(title)
     return cf
 
@@ -254,7 +268,7 @@ def plot_value_panel(ax, env, V: np.ndarray, meta: dict, plane: str, title: str,
         extend="both",
     )
     cs = ax.contour(x, y, V.T, levels=np.linspace(0.0, 1.0, 6), linewidths=0.5, alpha=0.55)
-    ax.clabel(cs, inline=True, fontsize=7, fmt="%.1f")
+    ax.clabel(cs, inline=True, fontsize=8, fmt="%.1f")
 
     if vector_field is not None:
         x_dot, y_dot = vector_field
@@ -277,8 +291,9 @@ def plot_value_panel(ax, env, V: np.ndarray, meta: dict, plane: str, title: str,
         )
 
     add_target_patch(ax, env, plane)
-    ax.set_xlabel(meta["xlabel"].replace("beta", r"$\beta$").replace("epsi", r"$e_\psi$").replace("ey", r"$e_y$"))
-    ax.set_ylabel(meta["ylabel"].replace("r", r"$r$").replace("epsi", r"$e_\psi$").replace("ey", r"$e_y$"))
+    xlabel, ylabel = plane_axis_labels(plane)
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
     ax.set_title(title)
     return cf
 
@@ -370,9 +385,10 @@ def main() -> None:
             args.vector_scale,
         )
         cbar = fig.colorbar(cf, ax=ax)
-        cbar.set_label(r"learned reachability value $V(x)$")
+        cbar.set_label(r"learned reachability value $V(x)$", fontsize=17)
+        cbar.ax.tick_params(labelsize=14)
         legend_loc = "lower right" if plane == "beta_r" else "lower left"
-        ax.legend(frameon=True, loc=legend_loc)
+        ax.legend(frameon=True, loc=legend_loc, borderpad=0.35, handlelength=1.5, labelspacing=0.35)
         for ext in ["png", "pdf"]:
             path = os.path.join(args.out_dir, f"{stem}.{ext}")
             fig.savefig(path, dpi=300, bbox_inches="tight")
@@ -396,10 +412,11 @@ def main() -> None:
             args.vector_scale,
         )
         legend_loc = "lower right" if plane == "beta_r" else "best"
-        ax.legend(frameon=True, loc=legend_loc)
+        ax.legend(frameon=True, loc=legend_loc, borderpad=0.35, handlelength=1.5, labelspacing=0.35)
     if combined_cf is not None:
         cbar = fig.colorbar(combined_cf, ax=axes.ravel().tolist(), shrink=0.95)
-        cbar.set_label(r"learned reachability value $V(x)$")
+        cbar.set_label(r"learned reachability value $V(x)$", fontsize=17)
+        cbar.ax.tick_params(labelsize=14)
     for ext in ["png", "pdf"]:
         path = os.path.join(args.out_dir, f"fig_section_vb3_value_contours.{ext}")
         fig.savefig(path, dpi=300, bbox_inches="tight")
