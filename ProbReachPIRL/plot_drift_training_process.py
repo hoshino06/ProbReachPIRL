@@ -149,7 +149,7 @@ PIRL_PRETRAIN = TD3_FIXED_BASELINE[:3]
 
 
 PANEL_SPECS = [
-    ("Loss/HJB", "Uniform HJB loss", True),
+    ("Loss/HJB", "Uniform PDE loss", True),
     ("Loss/BDR", "Boundary loss", True),
     ("Loss/RL", "TD3 loss", True),
     ("RL/Average Reward", "Average reward", False),

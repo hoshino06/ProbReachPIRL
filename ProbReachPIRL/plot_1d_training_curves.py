@@ -382,7 +382,10 @@ def plot_metric(
 
     if plotted:
         fig.savefig(out_path, dpi=300, bbox_inches="tight")
+        pdf_path = os.path.splitext(out_path)[0] + ".pdf"
+        fig.savefig(pdf_path, bbox_inches="tight")
         print(f"Saved: {out_path}")
+        print(f"Saved: {pdf_path}")
     else:
         print(f"Skipped: {out_path} (no data)")
     
@@ -401,7 +404,7 @@ def plot_loss_panel(
     smooth_mode: str = "linear",
 ) -> None:
     metrics = [
-        ("hjb_loss", "HJB loss"),
+        ("hjb_loss", "PDE loss"),
         ("bc_loss", "Boundary loss"),
         ("rl_loss", "TD3 loss"),
     ]
@@ -468,7 +471,10 @@ def plot_loss_panel(
 
     if any_plotted:
         fig.savefig(out_path, dpi=300, bbox_inches="tight")
+        pdf_path = os.path.splitext(out_path)[0] + ".pdf"
+        fig.savefig(pdf_path, bbox_inches="tight")
         print(f"Saved: {out_path}")
+        print(f"Saved: {pdf_path}")
     else:
         print(f"Skipped: {out_path} (no data)")
 
@@ -524,7 +530,7 @@ def main() -> None:
     plot_metric(all_curves, groups, "rl_loss", "RL loss",
                 os.path.join(args.out_dir, "fig_1d_rl_loss_mean_std.png"), args.num_points,
                 yscale=args.loss_yscale, xlim=xlim, ylim=None, show_legend=False, smooth_window=args.smooth_window, smooth_mode=args.smooth_mode)
-    plot_metric(all_curves, groups, "hjb_loss", "HJB loss",
+    plot_metric(all_curves, groups, "hjb_loss", "PDE loss",
                 os.path.join(args.out_dir, "fig_1d_hjb_loss_mean_std.png"), args.num_points,
                 yscale=args.loss_yscale, xlim=xlim, ylim=None, show_legend=False, smooth_window=args.smooth_window, smooth_mode=args.smooth_mode)
     plot_metric(all_curves, groups, "bc_loss", "Boundary loss",
