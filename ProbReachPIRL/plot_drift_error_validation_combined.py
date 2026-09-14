@@ -26,9 +26,10 @@ def main() -> None:
         ax.set_title(title, fontsize=20, fontweight="bold", pad=10)
         ax.axis("off")
 
-    path = out_dir / "drift_error_validation_combined.png"
-    fig.savefig(path, dpi=300, bbox_inches="tight", pad_inches=0.08, facecolor="white")
-    print(f"Saved: {path}")
+    for ext in ("png", "pdf"):
+        path = out_dir / f"drift_error_validation_combined.{ext}"
+        fig.savefig(path, dpi=300, bbox_inches="tight", pad_inches=0.08, facecolor="white")
+        print(f"Saved: {path}")
     plt.close(fig)
 
 

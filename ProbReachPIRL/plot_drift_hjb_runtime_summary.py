@@ -306,7 +306,7 @@ def draw_loss_panel(ax, rows: list[dict[str, float | str]]) -> None:
 
     hjb = [float(row["hjb_loss"]) for row in rows]
     bdr = [float(row["bdr_loss"]) for row in rows]
-    ax.bar(x - width / 2, hjb, color="#4c78a8", width=width, label="HJB")
+    ax.bar(x - width / 2, hjb, color="#4c78a8", width=width, label="PDE")
     ax.bar(x + width / 2, bdr, color="#f28e2b", width=width, label="BDR")
     ax.set_yscale("log")
     ax.set_ylabel("loss", fontsize=13)
